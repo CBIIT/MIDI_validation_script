@@ -1,0 +1,28 @@
+{
+  "run_name": "MIDI_1_1_Testing_01",
+  "input_data_path": "/mnt/d/data",
+  "output_data_path": "/mnt/d/results",
+  "answer_db_file": "/mnt/d/answers/midi_1_1_answer_data_1.db",
+  "uid_mapping_file": "/mnt/d/mappings/midi_1_1_uid_mapping_1_test.csv",
+  "multiprocessing": "True",
+  "multiprocessing_cpus": "5",
+  "log_path": "/mnt/d/logs",
+  "log_level": "info"
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
