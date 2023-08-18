@@ -13,8 +13,9 @@ import logging
 import shutil
 
 from modules.directory_indexer import directory_indexer
-from modules.modality_organizer import modality_organizer
-from modules.patient_organizer import patient_organizer
+#from modules.modality_organizer import modality_organizer
+#from modules.patient_organizer import patient_organizer
+from modules.study_organizer import study_organizer
 
 class validation_helper(object):
 
@@ -102,8 +103,9 @@ class validation_helper(object):
         #validation_df = validation_df.reset_index(drop=True)
         #validation_df.to_sql('validation_results', self.validation_db_conn, if_exists='replace')
 
-        pat_organizer = patient_organizer()
-        validation_df = pat_organizer.run_validation(dir_df, self.output_path, self.answer_df, self.uids_old_to_new, self.multiproc, self.multiproc_cpus, self.log_path, self.log_level)
+        #pat_organizer = patient_organizer()
+        stu_organizer = study_organizer()
+        validation_df = stu_organizer.run_validation(dir_df, self.output_path, self.answer_df, self.uids_old_to_new, self.multiproc, self.multiproc_cpus, self.log_path, self.log_level)
         validation_df = validation_df.reset_index(drop=True)
         validation_df.to_sql('validation_results', self.validation_db_conn, if_exists='replace')
 
