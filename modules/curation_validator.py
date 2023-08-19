@@ -203,7 +203,7 @@ class curation_validator(object):
 
             try:
 
-                if check_row.tag_ds in file_row.keys():
+                if check_row.tag_ds in file_row.keys() and not pd.isnull(file_row[check_row.tag_ds]):
                     file_value = file_row[check_row.tag_ds]
                     check_pass = True
                     check_score = 1
@@ -230,7 +230,7 @@ class curation_validator(object):
 
             try:
 
-                if check_row.tag_ds in file_row.keys():
+                if check_row.tag_ds in file_row.keys() and not pd.isnull(file_row[check_row.tag_ds]):
                     file_value = file_row[check_row.tag_ds]
                     if file_value in ['<>']:
                         check_pass = False
