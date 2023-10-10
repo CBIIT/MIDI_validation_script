@@ -73,7 +73,8 @@ class validation_helper(object):
 
         # multiprocessing
         # ---------------------------
-        self.multiproc = multiproc in ['True','true','1']
+        # self.multiproc = multiproc in ['True','true','1']
+        self.multiproc = multiproc 
         self.multiproc_cpus = 0 if multiproc_cpus == '' else int(multiproc_cpus)
 
         # logging
