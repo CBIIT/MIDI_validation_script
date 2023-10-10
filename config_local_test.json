@@ -1,0 +1,28 @@
+{
+  "run_name": "MIDI_1_1_Testing_01",
+  "input_data_path": "/Users/peil2/Documents/code/midi/test_data/group_1",
+  "output_data_path": "/Users/peil2/Documents/code/midi/myResult/group_1",
+  "answer_db_file": "/Users/peil2/Documents/code/midi/answer_key/midi_1_1_answer_data_1.db",
+  "uid_mapping_file": "/Users/peil2/Documents/code/midi/mapping_data/midi_1_1_uid_mapping_1_test.csv",
+  "multiprocessing": "True",
+  "multiprocessing_cpus": "5",
+  "log_path": "/Users/peil2/Documents/code/midi/logs",
+  "log_level": "info"
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

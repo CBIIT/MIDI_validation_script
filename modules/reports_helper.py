@@ -67,12 +67,12 @@ class reports_helper(object):
         logging.info('Discrepancy Report Complete')
 
         report_path = os.path.join(self.output_path, 'scoring_report.xlsx')
-        report_writer = pd.ExcelWriter(report_path)
 
         logging.info('Action Report Started')        
         action_df, action_pivot = self.action_report()
         if not action_pivot.empty:
-            action_pivot.to_excel(report_writer, 'Actions', index=True)
+            with pd.ExcelWriter(report_path, mode='w') as report_writer:
+                action_pivot.to_excel(report_writer, 'Actions', index=True)
             #action_path = os.path.join(self.output_path, 'action_report.csv')
             #action_df.to_csv(action_path)
         logging.info('Action Report Complete')
@@ -80,7 +80,8 @@ class reports_helper(object):
         logging.info('Category Report Started')
         category_df, category_pivot = self.category_report()
         if not category_pivot.empty:
-            category_pivot.to_excel(report_writer, 'Categories', index=True)
+            with pd.ExcelWriter(report_path, mode='a') as report_writer:
+                category_pivot.to_excel(report_writer, 'Categories', index=True)
             #category_path = os.path.join(self.output_path, 'category_report.csv')
             #category_df.to_csv(category_path)
         logging.info('Category Report Complete')
@@ -88,12 +89,13 @@ class reports_helper(object):
         logging.info('Scoring Report Started')
         scoring_df, scoring_pivot = self.scoring_report(category_df)
         if not scoring_pivot.empty:
-            scoring_pivot.to_excel(report_writer, 'Scoring', index=True)
+            with pd.ExcelWriter(report_path, mode='a') as report_writer:
+                scoring_pivot.to_excel(report_writer, 'Scoring', index=True)
             #scoring_path = os.path.join(self.output_path, 'scoring_report.csv')
             #scoring_df.to_csv(scoring_path)
         logging.info('Scoring Report Complete')
 
-        report_writer.save()
+        # report_writer.save()
 
         logging.info('Report Generation Complete')
 
@@ -194,15 +196,16 @@ class reports_helper(object):
         scoring_weights = {'Category 1 - HIPAA':50, 'Category 2 - DICOM Standard':30, 'Category 3 - Best Practice':20, }
 
         scores = []
+        final_score = 0.0
 
         pivot_iter = scoring_pivot.copy()
 
         for index, row in pivot_iter.iterrows():
 
             if index == 'Total':
-                final_score = sum(scores)
+                # final_score = sum(scores)
                 final_score_str = '{percent:.2%}'.format(percent=final_score)
-                scoring_pivot.at[index, 'Score'] = final_score_str
+                scoring_pivot.at[index, 'Weighted_score'] = final_score_str
             else:
                 weight = scoring_weights[row.Category]
                 failed = row.Fail if 'Fail' in row else 0
@@ -212,9 +215,12 @@ class reports_helper(object):
                 cat_score = (passed/total)
                 cat_score_str = '{percent:.2%}'.format(percent=cat_score)
                 add_score = (cat_score*(weight/100))
-                scores.append(add_score)
+                final_score += add_score
+                add_score_str = '{percent:.2%}'.format(percent=add_score)
+                scores.append(add_score_str)
 
                 scoring_pivot.at[index, 'Weight'] = weight
                 scoring_pivot.at[index, 'Score'] = cat_score_str
+                scoring_pivot.at[index, 'Weighted_score'] = add_score_str
 
         return scoring_df, scoring_pivot

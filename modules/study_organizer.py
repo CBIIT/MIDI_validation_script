@@ -18,7 +18,8 @@ import concurrent.futures as futures
 
 class study_organizer(object):
 
-    #def __init__(self):
+    def __init__(self):
+        self.study_answer_df = []
 
     def run_validation(self, dir_df, output_path, answer_df, uids_old_to_new, multiproc, multiproc_cpus, log_path, log_level):
 
@@ -98,6 +99,7 @@ class study_organizer(object):
         logging.info(f'Study:{study} - File Indexing Started')
         indexer = file_indexer()
         study_table_df = indexer.get_file_table(data_df, multiproc, multiproc_cpus, log_path, log_level)
+
         #pat_table_df.to_csv(os.path.join(self.output_path, "file_table_listing.csv"))
         logging.debug(f'Study:{study} - Files Indexed: {len(study_table_df)}')
         logging.info(f'Study:{study} - File Indexing Complete')
@@ -106,9 +108,11 @@ class study_organizer(object):
         # Prep Answer Data
         #-------------------------------------
         logging.info(f'Study:{study} - Answer Data Prep Started')
-        preparer = answer_preparer()
-        study_answer_df = preparer.get_prepared_data(answer_df, uids_old_to_new, multiproc, multiproc_cpus, log_path, log_level)
-        logging.debug(f'Study:{study} - Answer Records: {len(study_answer_df)}')
+        if len(self.study_answer_df)==0:
+            preparer = answer_preparer()
+            study_answer_df = preparer.get_prepared_data(answer_df, uids_old_to_new, multiproc, multiproc_cpus, log_path, log_level)
+            self.study_answer_df = study_answer_df
+        logging.debug(f'Study:{study} - Answer Records: {len(self.study_answer_df)}')
         logging.info(f'Study:{study} - Answer Data Prep Complete')
 
         #-------------------------------------
@@ -116,7 +120,7 @@ class study_organizer(object):
         #-------------------------------------
         logging.info(f'Study:{study} - Validation Started')
         validator = curation_validator()
-        study_validation_df = validator.get_validation_data(study_table_df, study_answer_df, multiproc, multiproc_cpus, log_path, log_level)
+        study_validation_df = validator.get_validation_data(study_table_df, self.study_answer_df, multiproc, multiproc_cpus, log_path, log_level)
         logging.debug(f'Study:{study} - Validation Records: {len(study_validation_df)}')
         logging.info(f'Study:{study} - Validation Complete')
 

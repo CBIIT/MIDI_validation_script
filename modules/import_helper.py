@@ -63,7 +63,10 @@ class import_helper(object):
                                       check_score = @check_score 
                                 WHERE [index] = @index
                             """
-                sql_values = [int(row.check_passed), float(row.check_score), index]
+                if pd.isna(row.check_passed):
+                    sql_values = [row.check_passed, float(row.check_score), index]
+                else:
+                    sql_values = [int(row.check_passed), float(row.check_score), index]
                 cursor.execute(sql_query, sql_values)
 
         #self.validation_db_conn.commit()
