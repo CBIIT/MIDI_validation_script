@@ -30,6 +30,7 @@ class validation_helper(object):
         uid_mapping_file = config['uid_mapping_file']
         multiproc = eval(config['multiprocessing'])
         multiproc_cpus = config['multiprocessing_cpus'] if 'multiprocessing_cpus' in config else 0
+        series_based = eval(config['series_based'])
 
         # input_path
         # ---------------------------
@@ -77,6 +78,9 @@ class validation_helper(object):
         self.multiproc = multiproc 
         self.multiproc_cpus = 0 if multiproc_cpus == '' else int(multiproc_cpus)
 
+        #check if it is series_basd or instance_based
+        self.series_based = series_based
+
         # logging
         # ---------------------------
         self.log_path = log_path
@@ -107,7 +111,7 @@ class validation_helper(object):
         #pat_organizer = patient_organizer()
         #validation_df = pat_organizer.run_validation(dir_df, self.output_path, self.answer_df, self.uids_old_to_new, self.multiproc, self.multiproc_cpus, self.log_path, self.log_level)
         stu_organizer = study_organizer()
-        validation_df = stu_organizer.run_validation(dir_df, self.output_path, self.answer_df, self.uids_old_to_new, self.multiproc, self.multiproc_cpus, self.log_path, self.log_level)
+        validation_df = stu_organizer.run_validation(dir_df, self.output_path, self.answer_df, self.uids_old_to_new, self.multiproc, self.multiproc_cpus, self.log_path, self.log_level, self.series_based)
         validation_df = validation_df.reset_index(drop=True)
         validation_df.to_sql('validation_results', self.validation_db_conn, if_exists='replace')
 

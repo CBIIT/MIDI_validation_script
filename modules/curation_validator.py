@@ -26,11 +26,21 @@ class curation_validator(object):
         self.stopwords = stopwords.words('english')
         self.punctuation = list(string.punctuation) + ['“','”','‘','’','``','•']      
 
+        self.series_based = False
+	
+        self.checked_tag_retained = []
+        self.checked_text_notnull = []
+        self.checked_text_retained = []
+        self.checked_text_removed = []
+        self.checked_date_shifted = []
+        self.checked_uid_changed = []
+
     # ---------------------------------
     # Main functions
     # ---------------------------------
 
-    def get_validation_data(self, file_data, answer_data, multiproc, multiproc_cpus, log_path, log_level):
+    def get_validation_data(self, file_data, answer_data, multiproc, multiproc_cpus, log_path, log_level, series_based):
+        self.series_based = series_based
 
         error_dicts = []
 
@@ -45,14 +55,14 @@ class curation_validator(object):
                 futures_list = []
 
                 for file_list in file_lists:
-                    futures_list.append(executor.submit(self.validate_files, file_list, answer_data, log_path, log_level))
+                    futures_list.append(executor.submit(self.validate_files, file_list, answer_data, log_path, log_level, series_based))
 
                 for future in futures.as_completed(futures_list):
                     result = future.result()
                     error_dicts.append(result)
 
         else:
-            result = self.validate_files(file_data, answer_data, log_path, log_level)
+            result = self.validate_files(file_data, answer_data, log_path, log_level, series_based)
             error_dicts.append(result)
 
         #---------------------------
@@ -61,7 +71,7 @@ class curation_validator(object):
 
         return error_df
 
-    def validate_files(self, file_list, answer_data, log_path, log_level):
+    def validate_files(self, file_list, answer_data, log_path, log_level, series_based):
 
         def initialize_logging(log_path, log_level):
 
@@ -78,6 +88,9 @@ class curation_validator(object):
 
         error_dict = {}
         error_iter = 0
+
+        # if len(file_list)>1:
+        #     print('+++++ have {} number of instances in the series'.format(len(file_list)))
 
         for file_index, file_row in file_list.iterrows():
 
@@ -202,14 +215,19 @@ class curation_validator(object):
             check_score = None
 
             try:
-
-                if check_row.tag_ds in file_row.keys() and not pd.isnull(file_row[check_row.tag_ds]):
-                    file_value = file_row[check_row.tag_ds]
-                    check_pass = True
-                    check_score = 1
+	
+                if (check_row.tag_ds in self.checked_tag_retained) & (self.series_based==True):
+                    continue
                 else:
-                    check_pass = False
-                    check_score = 0
+                    self.checked_tag_retained.append(check_row.tag_ds)
+
+                    if check_row.tag_ds in file_row.keys() and not pd.isnull(file_row[check_row.tag_ds]):
+                        file_value = file_row[check_row.tag_ds]
+                        check_pass = True
+                        check_score = 1
+                    else:
+                        check_pass = False
+                        check_score = 0
 
             except:
                 error = traceback.format_exc()
@@ -230,17 +248,22 @@ class curation_validator(object):
 
             try:
 
-                if check_row.tag_ds in file_row.keys() and not pd.isnull(file_row[check_row.tag_ds]):
-                    file_value = file_row[check_row.tag_ds]
-                    if file_value in ['<>']:
+                if (check_row.tag_ds in self.checked_text_notnull) & (self.series_based==True):
+                    continue
+                else:
+                    self.checked_text_notnull.append(check_row.tag_ds)
+
+                    if check_row.tag_ds in file_row.keys() and not pd.isnull(file_row[check_row.tag_ds]):
+                        file_value = file_row[check_row.tag_ds]
+                        if file_value in ['<>']:
+                            check_pass = False
+                            check_score = 0
+                        else:
+                            check_pass = True
+                            check_score = 1
+                    else:
                         check_pass = False
                         check_score = 0
-                    else:
-                        check_pass = True
-                        check_score = 1
-                else:
-                    check_pass = False
-                    check_score = 0
                         
             except:
                 error = traceback.format_exc()
@@ -260,17 +283,22 @@ class curation_validator(object):
             check_score = None
 
             try:
-                if check_row.tag_ds in file_row.keys():
-                    file_value = file_row[check_row.tag_ds] if not pd.isnull(file_row[check_row.tag_ds]) else None
-                    if file_value:
-                        check_value = check_row.action_text if not pd.isnull(check_row.action_text) else None
-                        check_pass, check_score = self.validate_text(file_value, check_value, 'retain')
+                if (check_row.tag_ds in self.checked_text_retained) & (self.series_based==True):
+                    continue
+                else:
+                    self.checked_text_retained.append(check_row.tag_ds)
+
+                    if check_row.tag_ds in file_row.keys():
+                        file_value = file_row[check_row.tag_ds] if not pd.isnull(file_row[check_row.tag_ds]) else None
+                        if file_value:
+                            check_value = check_row.action_text if not pd.isnull(check_row.action_text) else None
+                            check_pass, check_score = self.validate_text(file_value, check_value, 'retain')
+                        else:
+                            check_pass = False
+                            check_score = 0
                     else:
                         check_pass = False
                         check_score = 0
-                else:
-                    check_pass = False
-                    check_score = 0
 
             except:
                 error = traceback.format_exc()
@@ -290,19 +318,23 @@ class curation_validator(object):
             check_score = None
 
             try:
+                if (check_row.tag_ds in self.checked_text_removed) & (self.series_based==True):
+                    continue
+                else:
+                    self.checked_text_removed.append(check_row.tag_ds)
 
-                if check_row.tag_ds in file_row.keys():
-                    file_value = file_row[check_row.tag_ds] if not pd.isnull(file_row[check_row.tag_ds]) else None
-                    file_value = '<>' if file_value == '<REMOVED>' else file_value
-                    if file_value:
-                        check_value = check_row.action_text if not pd.isnull(check_row.action_text) else None
-                        check_pass, check_score = self.validate_text(file_value, check_value, 'remove')
+                    if check_row.tag_ds in file_row.keys():
+                        file_value = file_row[check_row.tag_ds] if not pd.isnull(file_row[check_row.tag_ds]) else None
+                        file_value = '<>' if file_value == '<REMOVED>' else file_value
+                        if file_value:
+                            check_value = check_row.action_text if not pd.isnull(check_row.action_text) else None
+                            check_pass, check_score = self.validate_text(file_value, check_value, 'remove')
+                        else:
+                            check_pass = True
+                            check_score = 1
                     else:
                         check_pass = True
                         check_score = 1
-                else:
-                    check_pass = True
-                    check_score = 1
 
             except:
                 error = traceback.format_exc()
@@ -322,21 +354,25 @@ class curation_validator(object):
             check_score = None
 
             try:
+                if (check_row.tag_ds in self.checked_date_shifted) & (self.series_based==True):
+                    continue
+                else:
+                    self.checked_date_shifted.append(check_row.tag_ds)
 
-                if check_row.tag_ds in file_row.keys():
+                    if check_row.tag_ds in file_row.keys():
 
-                    file_value = file_row[check_row.tag_ds] if not pd.isnull(file_row[check_row.tag_ds]) else ''
-                    check_value = check_row.value.replace('<','').replace('>','')
+                        file_value = file_row[check_row.tag_ds] if not pd.isnull(file_row[check_row.tag_ds]) else ''
+                        check_value = check_row.value.replace('<','').replace('>','')
 
-                    if check_value.replace('\\','') in file_value.replace('\\',''):
-                        check_pass = False
-                        check_score = 0
+                        if check_value.replace('\\','') in file_value.replace('\\',''):
+                            check_pass = False
+                            check_score = 0
+                        else:
+                            check_pass = True
+                            check_score = 1
                     else:
                         check_pass = True
                         check_score = 1
-                else:
-                    check_pass = True
-                    check_score = 1
 
             except:
                 error = traceback.format_exc()
@@ -356,21 +392,25 @@ class curation_validator(object):
             check_score = None
 
             try:
+                if (check_row.tag_ds in self.checked_uid_changed) & (self.series_based==True):
+                    continue
+                else:
+                    self.checked_uid_changed.append(check_row.tag_ds)
 
-                if check_row.tag_ds in file_row.keys():
+                    if check_row.tag_ds in file_row.keys():
 
-                    file_value = file_row[check_row.tag_ds] if not pd.isnull(file_row[check_row.tag_ds]) else ''
-                    check_value = check_row.value.replace('<','').replace('>','')
+                        file_value = file_row[check_row.tag_ds] if not pd.isnull(file_row[check_row.tag_ds]) else ''
+                        check_value = check_row.value.replace('<','').replace('>','')
 
-                    if check_value.replace('\\','') in file_value.replace('\\',''):
-                        check_pass = False
-                        check_score = 0
+                        if check_value.replace('\\','') in file_value.replace('\\',''):
+                            check_pass = False
+                            check_score = 0
+                        else:
+                            check_pass = True
+                            check_score = 1
                     else:
                         check_pass = True
                         check_score = 1
-                else:
-                    check_pass = True
-                    check_score = 1
 
             except:
                 error = traceback.format_exc()
