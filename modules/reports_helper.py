@@ -26,6 +26,7 @@ class reports_helper(object):
         answer_db_file = config['answer_db_file']
         uid_mapping_file = config['uid_mapping_file']
         multiproc = eval(config['multiprocessing'])
+        report_series = eval(config['report_series'])
         multiproc_cpus = config['multiprocessing_cpus']
 
         # output path
@@ -49,6 +50,8 @@ class reports_helper(object):
         self.log_path = log_path
         self.log_level = log_level
 
+        self.report_series = report_series
+
         logging.info('Initialization Complete')
 
     def run_reports(self):
@@ -66,9 +69,19 @@ class reports_helper(object):
             discrepancy_df.to_csv(discrepancy_path)
         logging.info('Discrepancy Report Complete')
 
-        report_path = os.path.join(self.output_path, 'scoring_report.xlsx')
+        if self.report_series == True:
+            report_path = os.path.join(self.output_path, 'scoring_report_series.xlsx')
+            sMethod = 'Series-based'
+        else:
+            report_path = os.path.join(self.output_path, 'scoring_report_instance.xlsx')
+            sMethod = 'Instance-based'
 
-        logging.info('Action Report Started')        
+        logging.info('Action Report Started\n')        
+
+        logging.info('***********************************************************')
+        logging.info(f'Method to count errors in the Report part: {sMethod}')        
+        logging.info('***********************************************************\n')
+
         action_df, action_pivot = self.action_report()
         if not action_pivot.empty:
             with pd.ExcelWriter(report_path, mode='w') as report_writer:
@@ -109,7 +122,7 @@ class reports_helper(object):
         total_df.loc[total_df.tag_name == '<LUT Data>', 'answer_value'] = '<Removed>'
         total_df.loc[total_df.tag_name == '<LUT Data>', 'action_text'] = '<Removed>'
 
-        total_df = total_df[['check_passed','check_score','tag_ds','tag_name','file_value','answer_value','action','action_text','answer_category','modality','class','patient','study','series','instance','file_name','file_path']]
+        # total_df = total_df[['check_passed','check_score','tag_ds','tag_name','file_value','answer_value','action','action_text','answer_category','modality','class','patient','study','series','instance','file_name','file_path']]
 
         #if tag_name = '<LUT Data>'
         #   file_value = '<Removed>'
@@ -121,6 +134,11 @@ class reports_helper(object):
         return total_df
 
     def action_report(self):
+
+        if self.report_series == True:
+            #if True, reduce the duplicated errors from the dataframe
+            self.validation_df = self.validation_df[['check_passed','check_score','tag_ds','tag_name','file_value','answer_value','action','action_text','answer_category','modality','class','patient','study','series']].copy()
+            self.validation_df = self.validation_df.drop_duplicates()
 
         action_df = self.validation_df[['action','check_passed']].copy()
         action_df['check_passed'] = action_df['check_passed'].fillna(-1)

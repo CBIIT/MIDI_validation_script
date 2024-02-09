@@ -20,20 +20,20 @@ class study_organizer(object):
 
     def __init__(self):
         self.study_answer_df = []
-        self.series_based = False #False value set to instance based. True for series based
+        self.validation_series = False #False value set to instance based. True for series based
         self.based_type = 'Study' 
 
-    def run_validation(self, dir_df, output_path, answer_df, uids_old_to_new, multiproc, multiproc_cpus, log_path, log_level, series_based):
+    def run_validation(self, dir_df, output_path, answer_df, uids_old_to_new, multiproc, multiproc_cpus, log_path, log_level, validation_series):
 
         #-------------------------------------
         # Get list of modalities and loop
         #-------------------------------------
         
-        self.series_based = series_based
+        self.validation_series = validation_series
 
         validation_dfs = []
         
-        if self.series_based == True:
+        if self.validation_series == True:
             studies = dir_df['series'].unique()
             self.based_type = 'Series'
         else:
@@ -56,14 +56,14 @@ class study_organizer(object):
 
                     logging.info(f'{self.based_type}:{study} - Started')
 
-                    if series_based == True:
+                    if validation_series == True:
                         #True: extract the series data
                         study_df = dir_df[dir_df['series'] == study]
                     else:
                         #otherwise, extract the instance data
                         study_df = dir_df[dir_df['study'] == study]
                     
-                    futures_list.append(executor.submit(self.validation_runner, output_path, study_df, answer_df, uids_old_to_new, study, log_path, log_level, series_based))
+                    futures_list.append(executor.submit(self.validation_runner, output_path, study_df, answer_df, uids_old_to_new, study, log_path, log_level, validation_series))
 
                 for future in futures.as_completed(futures_list):
                     result, study = future.result()
@@ -75,7 +75,7 @@ class study_organizer(object):
             for study in studies:
                 logging.info(f'{self.based_type}:{study} - Started')
 
-                if series_based == True:
+                if validation_series == True:
                     #True: extract the series data
                     study_df = dir_df[dir_df['series'] == study]
                 else:
@@ -84,7 +84,7 @@ class study_organizer(object):
 
                 #mod_answer_df = answer_df[answer_df['Modality'] == modality]
 
-                result, study = self.validation_runner(output_path, study_df, answer_df, uids_old_to_new, study, log_path, log_level, series_based)
+                result, study = self.validation_runner(output_path, study_df, answer_df, uids_old_to_new, study, log_path, log_level, validation_series)
                 validation_dfs.append(result)
 
                 logging.info(f'{self.based_type}:{study} - Complete')
@@ -94,7 +94,7 @@ class study_organizer(object):
 
         return full_validation_df
 
-    def validation_runner(self, output_path, data_df, answer_df, uids_old_to_new, study, log_path, log_level, series_based):
+    def validation_runner(self, output_path, data_df, answer_df, uids_old_to_new, study, log_path, log_level, validation_series):
 
         def initialize_logging(log_path, log_level):
 
@@ -109,8 +109,8 @@ class study_organizer(object):
 
         initialize_logging(log_path, log_level)
 
-        self.series_based = series_based
-        if self.series_based == True:
+        self.validation_series = validation_series
+        if self.validation_series == True:
             self.based_type = 'Series'
 
         multiproc = False
@@ -143,7 +143,7 @@ class study_organizer(object):
         #-------------------------------------
         logging.info(f'{self.based_type}:{study} - Validation Started')
         validator = curation_validator()
-        study_validation_df = validator.get_validation_data(study_table_df, self.study_answer_df, multiproc, multiproc_cpus, log_path, log_level, series_based)
+        study_validation_df = validator.get_validation_data(study_table_df, self.study_answer_df, multiproc, multiproc_cpus, log_path, log_level, validation_series)
         logging.debug(f'{self.based_type}:{study} - Validation Records: {len(study_validation_df)}')
         logging.info(f'{self.based_type}:{study} - Validation Complete')
 

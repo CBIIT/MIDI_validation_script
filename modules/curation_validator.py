@@ -26,7 +26,7 @@ class curation_validator(object):
         self.stopwords = stopwords.words('english')
         self.punctuation = list(string.punctuation) + ['“','”','‘','’','``','•']      
 
-        self.series_based = False
+        self.validation_series = False
 	
         self.checked_tag_retained = []
         self.checked_text_notnull = []
@@ -39,8 +39,8 @@ class curation_validator(object):
     # Main functions
     # ---------------------------------
 
-    def get_validation_data(self, file_data, answer_data, multiproc, multiproc_cpus, log_path, log_level, series_based):
-        self.series_based = series_based
+    def get_validation_data(self, file_data, answer_data, multiproc, multiproc_cpus, log_path, log_level, validation_series):
+        self.validation_series = validation_series
 
         error_dicts = []
 
@@ -55,14 +55,14 @@ class curation_validator(object):
                 futures_list = []
 
                 for file_list in file_lists:
-                    futures_list.append(executor.submit(self.validate_files, file_list, answer_data, log_path, log_level, series_based))
+                    futures_list.append(executor.submit(self.validate_files, file_list, answer_data, log_path, log_level, validation_series))
 
                 for future in futures.as_completed(futures_list):
                     result = future.result()
                     error_dicts.append(result)
 
         else:
-            result = self.validate_files(file_data, answer_data, log_path, log_level, series_based)
+            result = self.validate_files(file_data, answer_data, log_path, log_level, validation_series)
             error_dicts.append(result)
 
         #---------------------------
@@ -71,7 +71,7 @@ class curation_validator(object):
 
         return error_df
 
-    def validate_files(self, file_list, answer_data, log_path, log_level, series_based):
+    def validate_files(self, file_list, answer_data, log_path, log_level, validation_series):
 
         def initialize_logging(log_path, log_level):
 
@@ -216,7 +216,7 @@ class curation_validator(object):
 
             try:
 	
-                if (check_row.tag_ds in self.checked_tag_retained) & (self.series_based==True):
+                if (check_row.tag_ds in self.checked_tag_retained) & (self.validation_series==True):
                     continue
                 else:
                     self.checked_tag_retained.append(check_row.tag_ds)
@@ -248,7 +248,7 @@ class curation_validator(object):
 
             try:
 
-                if (check_row.tag_ds in self.checked_text_notnull) & (self.series_based==True):
+                if (check_row.tag_ds in self.checked_text_notnull) & (self.validation_series==True):
                     continue
                 else:
                     self.checked_text_notnull.append(check_row.tag_ds)
@@ -283,7 +283,7 @@ class curation_validator(object):
             check_score = None
 
             try:
-                if (check_row.tag_ds in self.checked_text_retained) & (self.series_based==True):
+                if (check_row.tag_ds in self.checked_text_retained) & (self.validation_series==True):
                     continue
                 else:
                     self.checked_text_retained.append(check_row.tag_ds)
@@ -318,7 +318,7 @@ class curation_validator(object):
             check_score = None
 
             try:
-                if (check_row.tag_ds in self.checked_text_removed) & (self.series_based==True):
+                if (check_row.tag_ds in self.checked_text_removed) & (self.validation_series==True):
                     continue
                 else:
                     self.checked_text_removed.append(check_row.tag_ds)
@@ -354,7 +354,7 @@ class curation_validator(object):
             check_score = None
 
             try:
-                if (check_row.tag_ds in self.checked_date_shifted) & (self.series_based==True):
+                if (check_row.tag_ds in self.checked_date_shifted) & (self.validation_series==True):
                     continue
                 else:
                     self.checked_date_shifted.append(check_row.tag_ds)
@@ -392,7 +392,7 @@ class curation_validator(object):
             check_score = None
 
             try:
-                if (check_row.tag_ds in self.checked_uid_changed) & (self.series_based==True):
+                if (check_row.tag_ds in self.checked_uid_changed) & (self.validation_series==True):
                     continue
                 else:
                     self.checked_uid_changed.append(check_row.tag_ds)

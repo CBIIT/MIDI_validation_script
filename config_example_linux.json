@@ -6,7 +6,8 @@
   "uid_mapping_file": "/Users/peil2/Documents/code/midi/mapping_data/midi_1_1_uid_mapping_1_test.csv",
   "multiprocessing": "True",
   "multiprocessing_cpus": "5",
-  "series_based": "True",
+  "validation_series": "False",
+  "report_series": "True",
   "log_path": "/Users/peil2/Documents/code/midi/logs",
   "log_level": "info"
 }

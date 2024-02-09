@@ -30,7 +30,7 @@ class validation_helper(object):
         uid_mapping_file = config['uid_mapping_file']
         multiproc = eval(config['multiprocessing'])
         multiproc_cpus = config['multiprocessing_cpus'] if 'multiprocessing_cpus' in config else 0
-        series_based = eval(config['series_based'])
+        validation_series = eval(config['validation_series'])
 
         # input_path
         # ---------------------------
@@ -79,7 +79,7 @@ class validation_helper(object):
         self.multiproc_cpus = 0 if multiproc_cpus == '' else int(multiproc_cpus)
 
         #check if it is series_basd or instance_based
-        self.series_based = series_based
+        self.validation_series = validation_series
 
         # logging
         # ---------------------------
@@ -98,7 +98,16 @@ class validation_helper(object):
         dir_df = dir_indexer.get_directory_listing(self.input_path, self.multiproc, self.multiproc_cpus)
         logging.debug(f'Directory Listing: {len(dir_df)} Files')
         #dir_df.to_csv(os.path.join(self.output_path,'directory_listing.csv'))
-        logging.info(f'Directory Indexing Complete')
+        logging.info(f'Directory Indexing Complete\n')
+
+        if self.validation_series == True:
+            sMethod = "Seried-based"
+        else:
+            sMethod = "Instance-based"
+
+        logging.info('*************************************************')
+        logging.info(f'Method in the Validation part: {sMethod}')
+        logging.info('*************************************************\n')
 
         #-------------------------------------
         # Send data to organizer to run validation
@@ -111,7 +120,7 @@ class validation_helper(object):
         #pat_organizer = patient_organizer()
         #validation_df = pat_organizer.run_validation(dir_df, self.output_path, self.answer_df, self.uids_old_to_new, self.multiproc, self.multiproc_cpus, self.log_path, self.log_level)
         stu_organizer = study_organizer()
-        validation_df = stu_organizer.run_validation(dir_df, self.output_path, self.answer_df, self.uids_old_to_new, self.multiproc, self.multiproc_cpus, self.log_path, self.log_level, self.series_based)
+        validation_df = stu_organizer.run_validation(dir_df, self.output_path, self.answer_df, self.uids_old_to_new, self.multiproc, self.multiproc_cpus, self.log_path, self.log_level, self.validation_series)
         validation_df = validation_df.reset_index(drop=True)
         validation_df.to_sql('validation_results', self.validation_db_conn, if_exists='replace')
 
