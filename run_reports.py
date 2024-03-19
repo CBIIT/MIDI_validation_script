@@ -11,6 +11,9 @@ import pandas as pd
 
 from modules.reports_helper import reports_helper
 
+import ipdb 
+ipdb.set_trace(context=20)
+
 def initialize_logging(config, start_time):
 
     run_name = config['run_name']

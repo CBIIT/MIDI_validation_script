@@ -211,7 +211,7 @@ class reports_helper(object):
         scoring_pivot.loc['Total']= scoring_pivot.sum(numeric_only=True, axis=0)
         scoring_pivot.loc[:,'Total'] = scoring_pivot.sum(numeric_only=True, axis=1)
 
-        scoring_weights = {'Category 1 - HIPAA':50, 'Category 2 - DICOM Standard':30, 'Category 3 - Best Practice':20, }
+        scoring_weights = {'Category 1 - HIPAA':70, 'Category 2 - DICOM Standard':20, 'Category 3 - Best Practice':10, }
 
         scores = []
         final_score = 0.0

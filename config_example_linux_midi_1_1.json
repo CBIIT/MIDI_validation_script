@@ -1,0 +1,30 @@
+{
+  "run_name": "MIDI_1_1_Testing_01",
+  "input_data_path": "/Users/peil2/Desktop/MIDI-test/test_data_midi_1.1/",
+  "output_data_path": "/Users/peil2/Desktop/MIDI-test/Result_4",
+  "answer_db_file": "/Users/peil2/Desktop/MIDI-test/answer_key/midi_1_1_answer_data_1.db",
+  "uid_mapping_file": "/Users/peil2/Desktop/MIDI-test/mapping/DicomCleaner_mapping_3.csv",
+  "multiprocessing": "True",
+  "multiprocessing_cpus": "5",
+  "validation_series": "False",
+  "report_series": "True",
+  "log_path": "/Users/peil2/Documents/code/midi/logs",
+  "log_level": "info"
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

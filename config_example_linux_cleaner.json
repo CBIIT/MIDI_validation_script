@@ -1,0 +1,30 @@
+{
+  "run_name": "MIDI_1_1_Testing_01",
+  "input_data_path": "/Users/peil2/Desktop/MIDI-test/manifest-perfect/Pseudo-PHI-DICOM-Data/",
+  "output_data_path": "/Users/peil2/Desktop/MIDI-test/dicomCleaner_Result_4_deid",
+  "answer_db_file": "/Users/peil2/Desktop/MIDI-test/answer_key/midi_1_0_answer_data_1_test.db",
+  "uid_mapping_file": "/Users/peil2/Desktop/MIDI-test/mapping/DicomCleaner_mapping_midi_1_0_deid.csv",
+  "multiprocessing": "True",
+  "multiprocessing_cpus": "5",
+  "validation_series": "False",
+  "report_series": "False",
+  "log_path": "/Users/peil2/Documents/code/midi/logs",
+  "log_level": "info"
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
