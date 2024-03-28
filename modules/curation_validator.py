@@ -179,7 +179,7 @@ class curation_validator(object):
         error_dict[error_iter]['check_score'] = score
         error_dict[error_iter]['action'] = check_row.action
         error_dict[error_iter]['action_text'] = check_row.action_text
-        # error_dict[error_iter]['answer_category'] = f'<{str(check_row.answer_category)}>'
+        error_dict[error_iter]['answer_category'] = f'<{str(check_row.answer_category)}>'
         error_dict[error_iter]['answer_category_v2'] = f'<{str(check_row.answer_category_v2)}>'
 
         error_dict[error_iter]['file_value'] = file_value

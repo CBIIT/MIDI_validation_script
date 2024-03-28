@@ -122,7 +122,7 @@ class reports_helper(object):
         total_df.loc[total_df.tag_name == '<LUT Data>', 'answer_value'] = '<Removed>'
         total_df.loc[total_df.tag_name == '<LUT Data>', 'action_text'] = '<Removed>'
 
-        # total_df = total_df[['check_passed','check_score','tag_ds','tag_name','file_value','answer_value','action','action_text','answer_category','modality','class','patient','study','series','instance','file_name','file_path']]
+        # total_df = total_df[['check_passed','check_score','tag_ds','tag_name','file_value','answer_value','action','action_text','answer_category_v2','modality','class','patient','study','series','instance','file_name','file_path']]
 
         #if tag_name = '<LUT Data>'
         #   file_value = '<Removed>'
@@ -137,7 +137,7 @@ class reports_helper(object):
 
         if self.report_series == True:
             #if True, reduce the duplicated errors from the dataframe
-            self.validation_df = self.validation_df[['check_passed','check_score','tag_ds','tag_name','file_value','answer_value','action','action_text','answer_category','modality','class','patient','study','series']].copy()
+            self.validation_df = self.validation_df[['check_passed','check_score','tag_ds','tag_name','file_value','answer_value','action','action_text','answer_category_v2','modality','class','patient','study','series']].copy()
             self.validation_df = self.validation_df.drop_duplicates()
 
         action_df = self.validation_df[['action','check_passed']].copy()
@@ -153,30 +153,72 @@ class reports_helper(object):
 
         return action_df, action_pivot
 
+    def check_category(self, cat_list):
+        temp_string = 'tcia' #default category as tcia 
+        b_cat_hipaa = False  #default category is False
+        b_cat_dicom = False  #default category is False
+        b_cat_tcia = False   #default category is False
+
+        cat_hipaa = cat_list['hipaa'] 
+        cat_dicom = cat_list['dicom'] 
+        cat_tcia = cat_list['tcia']
+        
+        cat_hipaa_values = list(cat_hipaa.values()) #get all values for hipaa
+        cat_dicom_values = list(cat_dicom.values()) #get all values for dicom
+        cat_tcia_values = list(cat_tcia.values())   #get all values for tcia
+        if 'TCIA-REV' in cat_tcia_values:
+            cat_tcia_values.remove('TCIA-REV') #remove TCIA-REV
+
+        cat_hipaa_values = [0 if x is None else 1 for x in cat_hipaa_values] #convert None to 0, otherwise 1
+        cat_dicom_values = [0 if x is None else 1 for x in cat_dicom_values] #convert None to 0, otherwise 1
+        cat_tcia_values = [0 if x is None else 1 for x in cat_tcia_values] #convert None to 0, otherwise 1
+
+        b_cat_hipaa = True if sum(cat_hipaa_values) != 0 else False #set category HIPAA as True
+        b_cat_dicom = True if sum(cat_dicom_values) != 0 else False #set category DICOM as True
+        b_cat_tcia = True if sum(cat_tcia_values) != 0 else False #set category TCIA as True
+
+        if b_cat_hipaa:
+            #check hipaa first
+            temp_string = 'hipaa'
+        elif b_cat_dicom:
+            #and then check dicom category 
+            temp_string = 'dicom'
+        elif b_cat_tcia:
+            temp_string = 'tcia'
+        return temp_string
+
+
     def category_report(self):
 
-        initial_df = self.validation_df[['action','check_passed','check_score','answer_category']].copy()
-        initial_df['answer_category'] = initial_df['answer_category'].apply(lambda x: str(x).replace('<','').replace('>','').replace('[]',"['tcia_standard']"))
+        initial_df = self.validation_df[['action','check_passed','check_score','answer_category_v2']].copy()
+        initial_df['answer_category_v2'] = initial_df['answer_category_v2'].apply(lambda x: str(x).replace('<','').replace('>','').replace('[]',"['tcia_standard']"))
         
         category_dict = {}
         category_iter = 0
 
         for index, row in initial_df.iterrows():
-            cat_list = eval(row.answer_category)
-            cat_list = list(dict.fromkeys(cat_list))
-
-            for category in cat_list:            
+            cat_list = eval(row.answer_category_v2)
+            category_dict[category_iter] = {}
+            sub_cat = self.check_category(cat_list)
+            category_dict[category_iter]['check_passed'] = row.check_passed
+            category_dict[category_iter]['category'] = sub_cat
+            category_iter += 1
             
-                category_dict[category_iter] = {}
-                category_dict[category_iter]['check_passed'] = row.check_passed
-                category_dict[category_iter]['answer_category'] = category
 
-                category_iter += 1
+            # cat_list = list(dict.fromkeys(cat_list))
+            # for category in cat_list:            
+            #     category_dict[category_iter] = {}
+            #     category_dict[category_iter]['check_passed'] = row.check_passed
+            #     category_dict[category_iter]['answer_category_v2'] = category
+            #     category_iter += 1
 
         category_df = pd.DataFrame.from_dict(category_dict, orient='index')
         category_df['check_passed'] = category_df['check_passed'].fillna(-1)
-        category_pivot = pd.pivot_table(category_df, index=['answer_category'], columns=['check_passed'], aggfunc=len, fill_value=0, dropna=False)
-        category_pivot = category_pivot.rename(columns={'answer_category':'Category',-1:'Blank',0:'Fail',1:'Pass'})
+        # category_pivot = pd.pivot_table(category_df, index=['answer_category_v2'], columns=['check_passed'], aggfunc=len, fill_value=0, dropna=False)
+        # category_pivot = category_pivot.rename(columns={'answer_category_v2':'Category',-1:'Blank',0:'Fail',1:'Pass'})
+
+        category_pivot = pd.pivot_table(category_df, index=['category'], columns=['check_passed'], aggfunc=len, fill_value=0, dropna=False)
+        category_pivot = category_pivot.rename(columns={'category':'Category',-1:'Blank',0:'Fail',1:'Pass'})
         category_pivot.index.names = ['Category']
         category_pivot = category_pivot.reset_index()
         category_pivot.loc['Total']= category_pivot.sum(numeric_only=True, axis=0)
@@ -201,7 +243,7 @@ class reports_helper(object):
                 return 'Category 3 - Best Practice'
 
         scoring_df = category_df.copy()
-        scoring_df['score_cat'] = scoring_df['answer_category'].apply(lambda x: get_score_cat(x))
+        scoring_df['score_cat'] = scoring_df['answer_category_v2'].apply(lambda x: get_score_cat(x))
         scoring_df = scoring_df[['check_passed','score_cat']]
 
         scoring_pivot = pd.pivot_table(scoring_df, index=['score_cat'], columns=['check_passed'], aggfunc=len, fill_value=0, dropna=False)
