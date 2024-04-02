@@ -26,7 +26,7 @@ def initialize_logging(config, start_time):
         os.makedirs(log_path)
 
     str_date = start_time.strftime("%Y%m%d%H%M%S")
-    log_file = os.path.join(log_path, f'{str_date}_{run_name}_reports.log')
+    log_file = os.path.join(log_path, f'{str_date}_{run_name}_dciodvfy.log')
     #log_file = f'{log_path}\\{str_date}_{run_name}_reports.log'
 
     set_level = logging.INFO

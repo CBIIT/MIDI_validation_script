@@ -363,3 +363,4 @@ MigrationBackup/
 FodyWeavers.xsd
 *.pyproj
 *.sln
+/dciodvfy.exe.stackdump
