@@ -17,14 +17,20 @@ class directory_indexer(object):
 
     def get_directory_listing(self, path, multiproc, multiproc_cpus):
 
-        file_dicts = []
         dir_files = self.get_directory_files(path)
+        batch_size = len(dir_files) // multiproc_cpus + (1 if len(dir_files) % multiproc_cpus > 0 else 0)
+        batches = [dir_files[i:i + batch_size] for i in range(0, len(dir_files), batch_size)]
 
-        workers = (multiproc_cpus * 4)
-
-        with futures.ThreadPoolExecutor(max_workers=workers) as executor:
-            for result in executor.map(self.index_file, dir_files):
-                file_dicts.append(result)             
+        file_dicts = []
+        
+        if multiproc:
+      
+            with futures.ProcessPoolExecutor(max_workers=multiproc_cpus) as executor:
+                for result in executor.map(self.index_files, batches):
+                    file_dicts.extend(result)
+                    
+        else:
+            file_dicts = self.index_files(dir_files)
 
         dir_df = pd.DataFrame(file_dicts)
         
@@ -39,28 +45,34 @@ class directory_indexer(object):
         all_paths = glob(os.path.join(path, '**', '*'), recursive=True)
         return [p for p in all_paths if os.path.isfile(p)]
 
-    def index_file(self, file_path):
+    def index_files(self, file_paths):
         
-        file_dict = {}
+        file_dicts = []
+        
+        for file_path in file_paths:
 
-        try:
-            with open(file_path, 'rb') as dcm:
-                dataset = dcmread(dcm, force=True)
-                file_dict = {
-                    'class': getattr(dataset, 'SOPClassUID', None),
-                    'modality': getattr(dataset, 'Modality', None),
-                    'patient': getattr(dataset, 'PatientID', None),
-                    'study': getattr(dataset, 'StudyInstanceUID', None),
-                    'series': getattr(dataset, 'SeriesInstanceUID', None),
-                    'instance': getattr(dataset, 'SOPInstanceUID', None),
-                    'instance_num': getattr(dataset, 'InstanceNumber', None),
-                    'file_name': os.path.basename(file_path),
-                    'file_path': file_path
-                }
-        except Exception as e:
-            logging.error(f"Error reading {file_path}: {e}")
+            file_dict = {}
 
-        return file_dict
+            try:
+                with open(file_path, 'rb') as dcm:
+                    dataset = dcmread(dcm, force=True)
+                    file_dict = {
+                        'class': getattr(dataset, 'SOPClassUID', None),
+                        'modality': getattr(dataset, 'Modality', None),
+                        'patient': getattr(dataset, 'PatientID', None),
+                        'study': getattr(dataset, 'StudyInstanceUID', None),
+                        'series': getattr(dataset, 'SeriesInstanceUID', None),
+                        'instance': getattr(dataset, 'SOPInstanceUID', None),
+                        'instance_num': getattr(dataset, 'InstanceNumber', None),
+                        'file_name': os.path.basename(file_path),
+                        'file_path': file_path
+                    }
+                file_dicts.append(file_dict)
+                
+            except Exception as e:
+                logging.error(f"Error reading {file_path}: {e}")
+
+        return file_dicts
 
 
 
