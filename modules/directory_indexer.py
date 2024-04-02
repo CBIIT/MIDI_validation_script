@@ -12,6 +12,7 @@ import pandas as pd
 import logging
 from glob import glob
 import concurrent.futures as futures
+from tqdm import tqdm
 
 class directory_indexer(object):
 
@@ -26,11 +27,17 @@ class directory_indexer(object):
         if multiproc:
       
             with futures.ProcessPoolExecutor(max_workers=multiproc_cpus) as executor:
-                for result in executor.map(self.index_files, batches):
+                
+                futures_list = [executor.submit(self.index_files, batch) for batch in batches]
+                
+                for future in tqdm(futures.as_completed(futures_list), total=len(futures_list), desc="Indexing file batches"):
+                    result = future.result()
                     file_dicts.extend(result)
                     
         else:
-            file_dicts = self.index_files(dir_files)
+            for batch in tqdm(batches, desc="Indexing file batches"):
+                result = self.index_files(batch)
+                file_dicts.extend(result)            
 
         dir_df = pd.DataFrame(file_dicts)
         
