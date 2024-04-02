@@ -93,7 +93,6 @@ class validation_helper(object):
         dir_indexer = directory_indexer()
         dir_df = dir_indexer.get_directory_listing(self.input_path, self.multiproc, self.multiproc_cpus)
         logging.debug(f'Directory Listing: {len(dir_df)} Files')
-        #dir_df.to_csv(os.path.join(self.output_path,'directory_listing.csv'))
         logging.info(f'Directory Indexing Complete')
 
         #-------------------------------------
@@ -101,13 +100,13 @@ class validation_helper(object):
         #-------------------------------------        
         #mod_organizer = modality_organizer()
         #validation_df = mod_organizer.run_validation(dir_df, self.output_path, self.answer_df, self.uids_old_to_new, self.multiproc, self.multiproc_cpus, self.log_path, self.log_level)
-        #validation_df = validation_df.reset_index(drop=True)
-        #validation_df.to_sql('validation_results', self.validation_db_conn, if_exists='replace')
 
         #pat_organizer = patient_organizer()
         #validation_df = pat_organizer.run_validation(dir_df, self.output_path, self.answer_df, self.uids_old_to_new, self.multiproc, self.multiproc_cpus, self.log_path, self.log_level)
+
         stu_organizer = study_organizer()
         validation_df = stu_organizer.run_validation(dir_df, self.output_path, self.answer_df, self.uids_old_to_new, self.multiproc, self.multiproc_cpus, self.log_path, self.log_level)
+
         validation_df = validation_df.reset_index(drop=True)
         validation_df.to_sql('validation_results', self.validation_db_conn, if_exists='replace')
 
