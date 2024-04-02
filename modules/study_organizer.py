@@ -24,7 +24,7 @@ class study_organizer(object):
     def run_validation(self, dir_df, output_path, answer_df, uids_old_to_new, multiproc, multiproc_cpus, log_path, log_level):
 
         #-------------------------------------
-        # Get list of modalities and loop
+        # Get list of studies and loop
         #-------------------------------------
         
         validation_dfs = []
@@ -37,8 +37,6 @@ class study_organizer(object):
         if multiproc:
             workers = 60 if multiproc_cpus > 60 else multiproc_cpus if multiproc_cpus >= 1 else 1
             workers = os.cpu_count() if workers > os.cpu_count() else workers
-            #sub_workers = ((workers - modality_count) / modality_count) // 1
-            #sub_workers = 1 if int(sub_workers) == 0 else int(sub_workers)
             
             with futures.ProcessPoolExecutor(max_workers=workers) as executor:
 
@@ -49,8 +47,9 @@ class study_organizer(object):
                     logging.info(f'Study:{study} - Started')
 
                     study_df = dir_df[dir_df['study'] == study]
+                    study_answer_df = answer_df[answer_df['StudyInstanceUID'] == study]
                     
-                    futures_list.append(executor.submit(self.validation_runner, output_path, study_df, answer_df, uids_old_to_new, study, log_path, log_level))
+                    futures_list.append(executor.submit(self.validation_runner, output_path, study_df, study_answer_df, uids_old_to_new, study, log_path, log_level))
 
                 for future in futures.as_completed(futures_list):
                     result, study = future.result()
@@ -63,9 +62,9 @@ class study_organizer(object):
                 logging.info(f'Study:{study} - Started')
 
                 study_df = dir_df[dir_df['study'] == study]
-                #mod_answer_df = answer_df[answer_df['Modality'] == modality]
+                study_answer_df = answer_df[answer_df['StudyInstanceUID'] == study]
 
-                result, study = self.validation_runner(output_path, study_df, answer_df, uids_old_to_new, study, log_path, log_level)
+                result, study = self.validation_runner(output_path, study_df, study_answer_df, uids_old_to_new, study, log_path, log_level)
                 validation_dfs.append(result)
 
                 logging.info(f'Study:{study} - Complete')
