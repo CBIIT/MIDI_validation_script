@@ -26,8 +26,8 @@ class directory_indexer(object):
         file_dicts = []
         
         if multiproc:
-      
-            with futures.ProcessPoolExecutor(max_workers=multiproc_cpus) as executor:
+            workers = max(1, min(multiproc_cpus, os.cpu_count(), 60))
+            with futures.ProcessPoolExecutor(max_workers=workers) as executor:
                 
                 futures_list = [executor.submit(self.index_files, batch) for batch in batches]
                 

@@ -35,8 +35,7 @@ class series_organizer(object):
         #multiproc=False
 
         if multiproc:
-            workers = 60 if multiproc_cpus > 60 else multiproc_cpus if multiproc_cpus >= 1 else 1
-            workers = os.cpu_count() if workers > os.cpu_count() else workers
+            workers = max(1, min(multiproc_cpus, os.cpu_count(), 60))
             
             with futures.ProcessPoolExecutor(max_workers=workers) as executor:
 

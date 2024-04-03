@@ -37,7 +37,8 @@ class curation_validator(object):
         cpu_count = os.cpu_count()
 
         if multiproc and len(file_data) > (multiproc_cpus * 100):           
-            workers = 60 if multiproc_cpus > 60 else multiproc_cpus if multiproc_cpus >= 1 else 1
+            workers = max(1, min(multiproc_cpus, os.cpu_count(), 60))
+            
             file_lists = np.array_split(file_data, workers)
             
             with futures.ProcessPoolExecutor(max_workers=workers) as executor:
