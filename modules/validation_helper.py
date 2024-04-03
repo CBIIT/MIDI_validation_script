@@ -17,7 +17,8 @@ from modules.directory_indexer import directory_indexer
 #from modules.modality_organizer import modality_organizer
 #from modules.patient_organizer import patient_organizer
 #from modules.study_organizer import study_organizer
-from modules.series_organizer import series_organizer
+#from modules.series_organizer import series_organizer
+from modules.file_organizer import file_organizer
 
 class validation_helper(object):
 
@@ -112,9 +113,13 @@ class validation_helper(object):
         #stu_organizer = study_organizer()
         #validation_df = stu_organizer.run_validation(dir_df, self.output_path, self.answer_df, self.uids_old_to_new, self.uids_new_to_old, self.multiproc, self.multiproc_cpus, self.log_path, self.log_level)
         
-        ser_organizer = series_organizer()
-        validation_df = ser_organizer.run_validation(dir_df, self.output_path, self.answer_df, self.uids_old_to_new, self.uids_new_to_old, self.multiproc, self.multiproc_cpus, self.log_path, self.log_level)        
+        #ser_organizer = series_organizer()
+        #validation_df = ser_organizer.run_validation(dir_df, self.output_path, self.answer_df, self.uids_old_to_new, self.uids_new_to_old, self.multiproc, self.multiproc_cpus, self.log_path, self.log_level)        
         
+        f_organizer = file_organizer()
+        validation_df = f_organizer.run_validation(dir_df, self.output_path, self.answer_df, self.uids_old_to_new, self.uids_new_to_old, self.multiproc, self.multiproc_cpus, self.log_path, self.log_level)        
+        
+
         validation_df = validation_df.reset_index(drop=True)
         logging.info('Validation Complete')
         

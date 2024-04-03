@@ -20,7 +20,7 @@ class directory_indexer(object):
     def get_directory_listing(self, path, multiproc, multiproc_cpus):
 
         dir_files = self.get_directory_files(path)
-        batch_size = len(dir_files) // multiproc_cpus + (1 if len(dir_files) % multiproc_cpus > 0 else 0)
+        batch_size = len(dir_files) // (multiproc_cpus * 5) + (1 if len(dir_files) % multiproc_cpus > 0 else 0)
         batches = [dir_files[i:i + batch_size] for i in range(0, len(dir_files), batch_size)]
 
         file_dicts = []
