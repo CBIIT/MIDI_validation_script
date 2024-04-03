@@ -12,10 +12,12 @@ import sqlite3 as sql
 import logging
 import shutil
 
+
 from modules.directory_indexer import directory_indexer
 #from modules.modality_organizer import modality_organizer
 #from modules.patient_organizer import patient_organizer
-from modules.study_organizer import study_organizer
+#from modules.study_organizer import study_organizer
+from modules.series_organizer import series_organizer
 
 class validation_helper(object):
 
@@ -60,16 +62,17 @@ class validation_helper(object):
         self.answer_df = pd.read_sql(answer_query, answer_db_conn)
         answer_db_conn.close()
 
-        logging.debug(f'Answer Key: {len(self.answer_df)} Records')
+        logging.info(f'Answer Key Imported: {len(self.answer_df)} Records')
 
         # uid mapping
         # ---------------------------
         self.uids_old_to_new = {}
         uid_file = pd.read_csv(uid_mapping_file, na_values=[], keep_default_na=False, converters={'id_old':str,'id_new':str})
+        self.uids_new_to_old = uid_file[['id_new','id_old']].set_index('id_new')['id_old'].to_dict()
         uid_file = uid_file.applymap(lambda x: f'<{x}>')
         self.uids_old_to_new = uid_file[['id_old','id_new']].set_index('id_old')['id_new'].to_dict()
 
-        logging.debug(f'UID Mapping: {len(self.uids_old_to_new)} Records')
+        logging.info(f'UID Mapping Imported: {len(self.uids_old_to_new)} Records')
 
         # multiprocessing
         # ---------------------------
@@ -92,22 +95,30 @@ class validation_helper(object):
         logging.info('Directory Indexing Started')
         dir_indexer = directory_indexer()
         dir_df = dir_indexer.get_directory_listing(self.input_path, self.multiproc, self.multiproc_cpus)
-        logging.debug(f'Directory Listing: {len(dir_df)} Files')
+        logging.debug(f'Directory Listing: {len(dir_df)} Files Indexed')
         logging.info(f'Directory Indexing Complete')
 
         #-------------------------------------
         # Send data to organizer to run validation
         #-------------------------------------        
+        logging.info('Validation Started')
+        
         #mod_organizer = modality_organizer()
         #validation_df = mod_organizer.run_validation(dir_df, self.output_path, self.answer_df, self.uids_old_to_new, self.multiproc, self.multiproc_cpus, self.log_path, self.log_level)
 
         #pat_organizer = patient_organizer()
         #validation_df = pat_organizer.run_validation(dir_df, self.output_path, self.answer_df, self.uids_old_to_new, self.multiproc, self.multiproc_cpus, self.log_path, self.log_level)
 
-        stu_organizer = study_organizer()
-        validation_df = stu_organizer.run_validation(dir_df, self.output_path, self.answer_df, self.uids_old_to_new, self.multiproc, self.multiproc_cpus, self.log_path, self.log_level)
-
+        #stu_organizer = study_organizer()
+        #validation_df = stu_organizer.run_validation(dir_df, self.output_path, self.answer_df, self.uids_old_to_new, self.uids_new_to_old, self.multiproc, self.multiproc_cpus, self.log_path, self.log_level)
+        
+        ser_organizer = series_organizer()
+        validation_df = ser_organizer.run_validation(dir_df, self.output_path, self.answer_df, self.uids_old_to_new, self.uids_new_to_old, self.multiproc, self.multiproc_cpus, self.log_path, self.log_level)        
+        
         validation_df = validation_df.reset_index(drop=True)
+        logging.info('Validation Complete')
+        
+        logging.info('Writing Results')
         validation_df.to_sql('validation_results', self.validation_db_conn, if_exists='replace')
 
         if len(validation_df) != 0:
