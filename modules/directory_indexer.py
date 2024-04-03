@@ -13,6 +13,7 @@ import logging
 from glob import glob
 import concurrent.futures as futures
 from tqdm import tqdm
+import warnings
 
 class directory_indexer(object):
 
@@ -30,20 +31,18 @@ class directory_indexer(object):
                 
                 futures_list = [executor.submit(self.index_files, batch) for batch in batches]
                 
-                for future in tqdm(futures.as_completed(futures_list), total=len(futures_list), desc="Indexing file batches"):
+                for future in tqdm(futures.as_completed(futures_list), total=len(futures_list), desc="Indexing File Batches"):
                     result = future.result()
                     file_dicts.extend(result)
                     
         else:
-            for batch in tqdm(batches, desc="Indexing file batches"):
+            for batch in tqdm(batches, desc="Indexing File Batches"):
                 result = self.index_files(batch)
                 file_dicts.extend(result)            
 
         dir_df = pd.DataFrame(file_dicts)
         
         #dir_df.to_excel(r'C:\data\midi\validation_test\test\new_dir_index.xlsx')
-
-        logging.debug(f'{len(dir_df)} Files Found')
         
         return dir_df
 
@@ -61,19 +60,22 @@ class directory_indexer(object):
             file_dict = {}
 
             try:
-                with open(file_path, 'rb') as dcm:
-                    dataset = dcmread(dcm, force=True)
-                    file_dict = {
-                        'class': getattr(dataset, 'SOPClassUID', None),
-                        'modality': getattr(dataset, 'Modality', None),
-                        'patient': getattr(dataset, 'PatientID', None),
-                        'study': getattr(dataset, 'StudyInstanceUID', None),
-                        'series': getattr(dataset, 'SeriesInstanceUID', None),
-                        'instance': getattr(dataset, 'SOPInstanceUID', None),
-                        'instance_num': getattr(dataset, 'InstanceNumber', None),
-                        'file_name': os.path.basename(file_path),
-                        'file_path': file_path
-                    }
+                with warnings.catch_warnings():
+                    warnings.filterwarnings("ignore", message="Unknown encoding")           
+                    
+                    with open(file_path, 'rb') as dcm:
+                        dataset = dcmread(dcm, force=True)
+                        file_dict = {
+                            'class': getattr(dataset, 'SOPClassUID', None),
+                            'modality': getattr(dataset, 'Modality', None),
+                            'patient': getattr(dataset, 'PatientID', None),
+                            'study': getattr(dataset, 'StudyInstanceUID', None),
+                            'series': getattr(dataset, 'SeriesInstanceUID', None),
+                            'instance': getattr(dataset, 'SOPInstanceUID', None),
+                            'instance_num': getattr(dataset, 'InstanceNumber', None),
+                            'file_name': os.path.basename(file_path),
+                            'file_path': file_path
+                        }
                 file_dicts.append(file_dict)
                 
             except Exception as e:

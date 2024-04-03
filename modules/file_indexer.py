@@ -11,6 +11,7 @@ from pydicom import dcmread
 import pandas as pd
 import numpy as np
 import logging
+import warnings
 
 import concurrent.futures as futures
 
@@ -147,18 +148,21 @@ class file_indexer(object):
             table_dict[table_iter] = {}
             table_dict[table_iter]['file_name'] = f'<{row.file_name}>'
             table_dict[table_iter]['file_path'] = f'<{row.file_path}>'
-            
-            with open(row.file_path, 'rb') as dcm:
-                dataset = dcmread(dcm, force=True)
-                
-                table_dict[table_iter]['modality'] = f'<{dataset.Modality}>'
-                table_dict[table_iter]['class'] = f'<{dataset.SOPClassUID}>'
-                table_dict[table_iter]['patient'] = f'<{dataset.PatientID}>'
-                table_dict[table_iter]['study'] = f'<{dataset.StudyInstanceUID}>'
-                table_dict[table_iter]['series'] = f'<{dataset.SeriesInstanceUID}>'
-                table_dict[table_iter]['instance'] = f'<{dataset.SOPInstanceUID}>'
 
-                table_dict[table_iter] = index_file_elements(dataset, table_dict[table_iter], 0, 0, None)
+            with warnings.catch_warnings():
+                warnings.filterwarnings("ignore", message="Unknown encoding")  
+                
+                with open(row.file_path, 'rb') as dcm:
+                    dataset = dcmread(dcm, force=True)
+                
+                    table_dict[table_iter]['modality'] = f'<{dataset.Modality}>'
+                    table_dict[table_iter]['class'] = f'<{dataset.SOPClassUID}>'
+                    table_dict[table_iter]['patient'] = f'<{dataset.PatientID}>'
+                    table_dict[table_iter]['study'] = f'<{dataset.StudyInstanceUID}>'
+                    table_dict[table_iter]['series'] = f'<{dataset.SeriesInstanceUID}>'
+                    table_dict[table_iter]['instance'] = f'<{dataset.SOPInstanceUID}>'
+
+                    table_dict[table_iter] = index_file_elements(dataset, table_dict[table_iter], 0, 0, None)
 
             table_iter += 1
 
