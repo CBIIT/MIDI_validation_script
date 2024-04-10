@@ -12,6 +12,7 @@ from pydicom import dcmread
 import pandas as pd
 import concurrent.futures as futures
 import logging
+from tqdm import tqdm
 
 
 class dciodvfy_runner(object):
@@ -45,25 +46,25 @@ class dciodvfy_runner(object):
 
     def check_file(self, root, file, software_path, log_path, log_level):
 
-        def initialize_logging(log_path, log_level):
+        # def initialize_logging(log_path, log_level):
 
-            logging.basicConfig(
-                level=log_level,
-                format="%(asctime)s - [%(levelname)s] - %(message)s",
-                handlers=[
-                    logging.FileHandler(log_path, 'a'),
-                    logging.StreamHandler()
-                ]
-            )
+        #     logging.basicConfig(
+        #         level=log_level,
+        #         format="%(asctime)s - [%(levelname)s] - %(message)s",
+        #         handlers=[
+        #             logging.FileHandler(log_path, 'a'),
+        #             logging.StreamHandler()
+        #         ]
+        #     )
 
-        initialize_logging(log_path, log_level)
+        # initialize_logging(log_path, log_level)
 
         errors = {}
         error_iter = 0
 
         file_path = os.path.join(root, file)
 
-        logging.info(f'Checking {file_path}')
+        #logging.info(f'Checking {file_path}')
 
         with open(file_path, 'rb') as dcm:
             dataset = dcmread(dcm, force=True)
@@ -145,12 +146,12 @@ class dciodvfy_runner(object):
                 for root, files in file_list:
                     futures_list.append(executor.submit(self.check_directory_files, root, files, software_path, log_path, log_level))
 
-                for future in futures.as_completed(futures_list):
+                for future in tqdm(futures.as_completed(futures_list), total=len(futures_list), desc="Checking Directories"):
                     error_dict = future.result()
                     directory_error_dicts.extend(error_dict)
 
         else:
-            for root, files in file_list:
+            for root, files in tqdm(file_list, desc="Checking Directories"):
                 error_dict = self.check_directory_files(root, files, software_path, log_path, log_level)
                 directory_error_dicts.extend(error_dict)
 
