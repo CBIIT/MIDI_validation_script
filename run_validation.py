@@ -114,6 +114,18 @@ def check_config(config_name):
         else:
             print('Config Error: uid_mapping_file not present')
             config_success = False
+            
+        # patid_mapping_file
+        if 'patid_mapping_file' in config:
+            if config['patid_mapping_file'].strip() == '':
+                print('Config Error: patid_mapping_file is blank')
+                config_success = False
+            if not os.path.isfile(config['patid_mapping_file']):
+                print('Config Error: patid_mapping_file does not exist')
+                config_success = False
+        else:
+            print('Config Error: patid_mapping_file not present')
+            config_success = False
 
         # multiprocessing
         if 'multiprocessing' in config:
@@ -154,6 +166,15 @@ def check_config(config_name):
                 config_success = False
         else:
             print('Config Error: log_level not present')
+            config_success = False
+            
+        # report_series
+        if 'report_series' in config:
+            if config['report_series'].strip() == '':
+                print('Config Error: report_series is blank')
+                config_success = False
+        else:
+            print('Config Error: report_series not present')
             config_success = False
 
     except Exception as e:
