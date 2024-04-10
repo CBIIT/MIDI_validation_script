@@ -14,6 +14,7 @@ from glob import glob
 import concurrent.futures as futures
 from tqdm import tqdm
 import warnings
+import hashlib
 
 class directory_indexer(object):
 
@@ -51,6 +52,18 @@ class directory_indexer(object):
         all_paths = glob(os.path.join(path, '**', '*'), recursive=True)
         return [p for p in all_paths if os.path.isfile(p)]
 
+    def md5sum_data(self, data):
+        """Calculate the md5sum of data, return (size, digest)"""
+        if isinstance(data, str):
+            # Encode the string to bytes
+            data = data.encode()
+
+        data_hash = hashlib.md5(data)
+        data_size = len(data)
+        data_digest = data_hash.hexdigest()
+    
+        return data_size, data_digest
+
     def index_files(self, file_paths):
         
         file_dicts = []
@@ -65,6 +78,11 @@ class directory_indexer(object):
                     
                     with open(file_path, 'rb') as dcm:
                         dataset = dcmread(dcm, force=True)
+                        
+                        pixel_digest = None
+                        if 'PixelData' in dataset:
+                            pixel_size, pixel_digest = self.md5sum_data(dataset.PixelData)
+                        
                         file_dict = {
                             'class': getattr(dataset, 'SOPClassUID', None),
                             'modality': getattr(dataset, 'Modality', None),
@@ -74,7 +92,8 @@ class directory_indexer(object):
                             'instance': getattr(dataset, 'SOPInstanceUID', None),
                             'instance_num': getattr(dataset, 'InstanceNumber', None),
                             'file_name': os.path.basename(file_path),
-                            'file_path': file_path
+                            'file_path': file_path,
+                            'file_digest': pixel_digest
                         }
                 file_dicts.append(file_dict)
                 

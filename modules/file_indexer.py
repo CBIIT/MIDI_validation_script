@@ -149,6 +149,7 @@ class file_indexer(object):
             table_dict[table_iter] = {}
             table_dict[table_iter]['file_name'] = f'<{row.file_name}>'
             table_dict[table_iter]['file_path'] = f'<{row.file_path}>'
+            table_dict[table_iter]['file_digest'] = f'<{row.file_digest}>'
 
             with warnings.catch_warnings():
                 warnings.filterwarnings("ignore", message="Unknown encoding")  

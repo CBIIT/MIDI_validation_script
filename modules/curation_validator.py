@@ -132,11 +132,15 @@ class curation_validator(object):
                     # --------------------------------------------------------------
                     pixels_hidden_check = answer_df[answer_df.action == '<pixels_hidden>']
                     error_iter, error_dict = self.validate_pixels_hidden(pixels_hidden_check, file_index, file_row, error_dict, error_iter)
+                    
+                    # pixels_retained
+                    # --------------------------------------------------------------
+                    pixels_retained_check = answer_df[answer_df.action == '<pixels_retained>']
+                    error_iter, error_dict = self.validate_pixels_retained(pixels_retained_check, file_index, file_row, error_dict, error_iter)
 
             except:
                 error = traceback.format_exc()
                 logging.error(f'action: validate_files | file_path: {file_row.file_path} | instance: {file_row.instance} | tag: None \n{error}')
-                a='a'
 
         return error_dict
 
@@ -216,7 +220,6 @@ class curation_validator(object):
             except:
                 error = traceback.format_exc()
                 logging.error(f'action: tag_retained | file_path: {file_row.file_path} | instance: {file_row.instance} | tag: {check_row.tag_ds} \n{error}')
-                a='a'
 
             error_iter, error_dict = self.log_error(error_dict, error_iter, file_index, file_row, check_index, check_row, file_value, check_pass, check_score)
 
@@ -247,7 +250,6 @@ class curation_validator(object):
             except:
                 error = traceback.format_exc()
                 logging.error(f'action: text_notnull | file_path: {file_row.file_path} | instance: {file_row.instance} | tag: {check_row.tag_ds} \n{error}')
-                a='a'
 
             error_iter, error_dict = self.log_error(error_dict, error_iter, file_index, file_row, check_index, check_row, file_value, check_pass, check_score)
 
@@ -277,7 +279,6 @@ class curation_validator(object):
             except:
                 error = traceback.format_exc()
                 logging.error(f'action: text_retained | file_path: {file_row.file_path} | instance: {file_row.instance} | tag: {check_row.tag_ds} \n{error}')
-                a='a'
 
             error_iter, error_dict = self.log_error(error_dict, error_iter, file_index, file_row, check_index, check_row, file_value, check_pass, check_score)
 
@@ -309,7 +310,6 @@ class curation_validator(object):
             except:
                 error = traceback.format_exc()
                 logging.error(f'action: text_removed | file_path: {file_row.file_path} | instance: {file_row.instance} | tag: {check_row.tag_ds} \n{error}')
-                a='a'
 
             error_iter, error_dict = self.log_error(error_dict, error_iter, file_index, file_row, check_index, check_row, file_value, check_pass, check_score)
 
@@ -343,7 +343,6 @@ class curation_validator(object):
             except:
                 error = traceback.format_exc()
                 logging.error(f'action: date_shifted | file_path: {file_row.file_path} | instance: {file_row.instance} | tag: {check_row.tag_ds} \n{error}')
-                a='a'
 
             error_iter, error_dict = self.log_error(error_dict, error_iter, file_index, file_row, check_index, check_row, file_value, check_pass, check_score)
 
@@ -377,7 +376,6 @@ class curation_validator(object):
             except:
                 error = traceback.format_exc()
                 logging.error(f'action: uid_changed | file_path: {file_row.file_path} | instance: {file_row.instance} | tag: {check_row.tag_ds} \n{error}')
-                a='a'
 
             error_iter, error_dict = self.log_error(error_dict, error_iter, file_index, file_row, check_index, check_row, file_value, check_pass, check_score)
 
@@ -393,6 +391,39 @@ class curation_validator(object):
             except:
                 error = traceback.format_exc()
                 logging.error(f'action: pixels_hidden | file_path: {file_row.file_path} | instance: {file_row.instance} | tag: {check_row.tag_ds} \n{error}')
+
+        return error_iter, error_dict
+
+    def validate_pixels_retained(self, data_check, file_index, file_row, error_dict, error_iter):
+
+        for check_index, check_row in data_check.iterrows():
+
+            file_value = None
+            check_pass = None
+            check_score = None
+
+            try:
+
+                if 'file_digest' in file_row.keys():
+
+                    file_value = file_row['file_digest'].strip('<>') if not pd.isnull(file_row['file_digest']) else ''
+                    check_value = check_row.value = check_row.action_text.strip('<>')
+
+                    if file_value != check_value:
+                        check_pass = False
+                        check_score = 0
+                    else:
+                        check_pass = True
+                        check_score = 1
+                else:
+                    check_pass = False
+                    check_score = 0
+
+            except:
+                error = traceback.format_exc()
+                logging.error(f'action: pixels_retained | file_path: {file_row.file_path} | instance: {file_row.instance} | tag: {check_row.tag_ds} \n{error}')
+
+            error_iter, error_dict = self.log_error(error_dict, error_iter, file_index, file_row, check_index, check_row, file_value, check_pass, check_score)
 
         return error_iter, error_dict
 
