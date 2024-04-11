@@ -30,7 +30,7 @@ class curation_validator(object):
     # Main functions
     # ---------------------------------
 
-    def get_validation_data(self, file_data, answer_data, multiproc, multiproc_cpus, log_path, log_level):
+    def get_validation_data(self, file_data, answer_data, uids_old_to_new, patids_old_to_new, multiproc, multiproc_cpus, log_path, log_level):
 
         error_dicts = []
 
@@ -46,14 +46,14 @@ class curation_validator(object):
                 futures_list = []
 
                 for file_list in file_lists:
-                    futures_list.append(executor.submit(self.validate_files, file_list, answer_data, log_path, log_level))
+                    futures_list.append(executor.submit(self.validate_files, file_list, answer_data, uids_old_to_new, patids_old_to_new, log_path, log_level))
 
                 for future in futures.as_completed(futures_list):
                     result = future.result()
                     error_dicts.append(result)
 
         else:
-            result = self.validate_files(file_data, answer_data, log_path, log_level)
+            result = self.validate_files(file_data, answer_data, uids_old_to_new, patids_old_to_new, log_path, log_level)
             error_dicts.append(result)
 
         #---------------------------
@@ -62,7 +62,7 @@ class curation_validator(object):
 
         return error_df
 
-    def validate_files(self, file_list, answer_data, log_path, log_level):
+    def validate_files(self, file_list, answer_data, uids_old_to_new, patids_old_to_new, log_path, log_level):
 
         def initialize_logging(log_path, log_level):
 
@@ -137,6 +137,16 @@ class curation_validator(object):
                     # --------------------------------------------------------------
                     pixels_retained_check = answer_df[answer_df.action == '<pixels_retained>']
                     error_iter, error_dict = self.validate_pixels_retained(pixels_retained_check, file_index, file_row, error_dict, error_iter)
+                    
+                    # uid_consistent
+                    # --------------------------------------------------------------
+                    uid_consistent_check = answer_df[answer_df.action == '<uid_consistent>']
+                    error_iter, error_dict = self.validate_uid_consistent(uid_consistent_check, file_index, file_row, error_dict, error_iter, uids_old_to_new)
+                    
+                    # patid_consistent
+                    # --------------------------------------------------------------
+                    patid_consistent_check = answer_df[answer_df.action == '<patid_consistent>']
+                    error_iter, error_dict = self.validate_patid_consistent(patid_consistent_check, file_index, file_row, error_dict, error_iter, patids_old_to_new)
 
             except:
                 error = traceback.format_exc()
@@ -422,6 +432,72 @@ class curation_validator(object):
             except:
                 error = traceback.format_exc()
                 logging.error(f'action: pixels_retained | file_path: {file_row.file_path} | instance: {file_row.instance} | tag: {check_row.tag_ds} \n{error}')
+
+            error_iter, error_dict = self.log_error(error_dict, error_iter, file_index, file_row, check_index, check_row, file_value, check_pass, check_score)
+
+        return error_iter, error_dict
+
+    def validate_uid_consistent(self, data_check, file_index, file_row, error_dict, error_iter, uids_old_to_new):
+
+        for check_index, check_row in data_check.iterrows():
+
+            file_value = None
+            check_pass = None
+            check_score = None
+
+            try:
+
+                if check_row.tag_ds in file_row.keys():
+
+                    file_value = file_row[check_row.tag_ds] if not pd.isnull(file_row[check_row.tag_ds]) else ''
+                    check_value = uids_old_to_new.get(check_row.value, "")
+
+                    if file_value != check_value:
+                        check_pass = False
+                        check_score = 0
+                    else:
+                        check_pass = True
+                        check_score = 1
+                else:
+                    check_pass = True
+                    check_score = 1
+
+            except:
+                error = traceback.format_exc()
+                logging.error(f'action: uid_consistent | file_path: {file_row.file_path} | instance: {file_row.instance} | tag: {check_row.tag_ds} \n{error}')
+
+            error_iter, error_dict = self.log_error(error_dict, error_iter, file_index, file_row, check_index, check_row, file_value, check_pass, check_score)
+
+        return error_iter, error_dict
+    
+    def validate_patid_consistent(self, data_check, file_index, file_row, error_dict, error_iter, patids_old_to_new):
+
+        for check_index, check_row in data_check.iterrows():
+
+            file_value = None
+            check_pass = None
+            check_score = None
+
+            try:
+
+                if check_row.tag_ds in file_row.keys():
+
+                    file_value = file_row[check_row.tag_ds] if not pd.isnull(file_row[check_row.tag_ds]) else ''
+                    check_value = patids_old_to_new.get(check_row.value, "")
+
+                    if file_value != check_value:
+                        check_pass = False
+                        check_score = 0
+                    else:
+                        check_pass = True
+                        check_score = 1
+                else:
+                    check_pass = True
+                    check_score = 1
+
+            except:
+                error = traceback.format_exc()
+                logging.error(f'action: patid_consistent | file_path: {file_row.file_path} | instance: {file_row.instance} | tag: {check_row.tag_ds} \n{error}')
 
             error_iter, error_dict = self.log_error(error_dict, error_iter, file_index, file_row, check_index, check_row, file_value, check_pass, check_score)
 

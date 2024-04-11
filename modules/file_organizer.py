@@ -19,7 +19,7 @@ from tqdm import tqdm
 
 class file_organizer(object):
 
-    def run_validation(self, dir_df, output_path, answer_df, uids_old_to_new, uids_new_to_old, multiproc, multiproc_cpus, log_path, log_level):
+    def run_validation(self, dir_df, output_path, answer_df, uids_old_to_new, uids_new_to_old, patids_old_to_new, multiproc, multiproc_cpus, log_path, log_level):
 
         #-------------------------------------
         # Get list of series and loop
@@ -49,7 +49,7 @@ class file_organizer(object):
                     file_df = dir_df[dir_df['instance'].isin(batch)]
                     file_answer_df = answer_df[answer_df['SOPInstanceUID'].isin(lookup_uids)]
                     
-                    futures_list.append(executor.submit(self.validation_runner, output_path, file_df, file_answer_df, uids_old_to_new, log_path, log_level))
+                    futures_list.append(executor.submit(self.validation_runner, output_path, file_df, file_answer_df, uids_old_to_new, patids_old_to_new, log_path, log_level))
 
                 for future in tqdm(futures.as_completed(futures_list), total=len(futures_list), desc="Validating File Batches"):
                     result = future.result()
@@ -63,7 +63,7 @@ class file_organizer(object):
                 file_df = dir_df[dir_df['instance'].isin(batch)]
                 file_answer_df = answer_df[answer_df['SOPInstanceUID'].isin(lookup_uids)]
 
-                result = self.validation_runner(output_path, file_df, file_answer_df, uids_old_to_new, log_path, log_level)
+                result = self.validation_runner(output_path, file_df, file_answer_df, uids_old_to_new, patids_old_to_new, log_path, log_level)
                 validation_dfs.append(result)
 
         full_validation_df = pd.concat(validation_df for validation_df in validation_dfs)
@@ -71,7 +71,7 @@ class file_organizer(object):
 
         return full_validation_df
 
-    def validation_runner(self, output_path, data_df, answer_df, uids_old_to_new, log_path, log_level):
+    def validation_runner(self, output_path, data_df, answer_df, uids_old_to_new, patids_old_to_new, log_path, log_level):
 
         def initialize_logging(log_path, log_level):
 
@@ -105,6 +105,6 @@ class file_organizer(object):
         # Validate Data
         #-------------------------------------
         validator = curation_validator()
-        file_validation_df = validator.get_validation_data(file_table_df, file_answer_df, multiproc, multiproc_cpus, log_path, log_level)
+        file_validation_df = validator.get_validation_data(file_table_df, file_answer_df, uids_old_to_new, patids_old_to_new, multiproc, multiproc_cpus, log_path, log_level)
 
         return file_validation_df

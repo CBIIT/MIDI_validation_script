@@ -31,6 +31,7 @@ class validation_helper(object):
         output_data_path = config['output_data_path']
         answer_db_file = config['answer_db_file']
         uid_mapping_file = config['uid_mapping_file']
+        patid_mapping_file = config['patid_mapping_file']
         multiproc = eval(config['multiprocessing'])
         multiproc_cpus = config['multiprocessing_cpus'] if 'multiprocessing_cpus' in config else 0
 
@@ -74,6 +75,15 @@ class validation_helper(object):
         self.uids_old_to_new = uid_file[['id_old','id_new']].set_index('id_old')['id_new'].to_dict()
 
         logging.info(f'UID Mapping Imported: {len(self.uids_old_to_new)} Records')
+        
+        # patid mapping
+        # ---------------------------
+        self.patids_old_to_new = {}
+        patid_file = pd.read_csv(patid_mapping_file, na_values=[], keep_default_na=False, converters={'id_old':str,'id_new':str})
+        patid_file = patid_file.applymap(lambda x: f'<{x}>')
+        self.patids_old_to_new = patid_file[['id_old','id_new']].set_index('id_old')['id_new'].to_dict()
+
+        logging.info(f'PatID Mapping Imported: {len(self.patids_old_to_new)} Records')
 
         # multiprocessing
         # ---------------------------
@@ -117,7 +127,7 @@ class validation_helper(object):
         #validation_df = ser_organizer.run_validation(dir_df, self.output_path, self.answer_df, self.uids_old_to_new, self.uids_new_to_old, self.multiproc, self.multiproc_cpus, self.log_path, self.log_level)        
         
         f_organizer = file_organizer()
-        validation_df = f_organizer.run_validation(dir_df, self.output_path, self.answer_df, self.uids_old_to_new, self.uids_new_to_old, self.multiproc, self.multiproc_cpus, self.log_path, self.log_level)        
+        validation_df = f_organizer.run_validation(dir_df, self.output_path, self.answer_df, self.uids_old_to_new, self.uids_new_to_old, self.patids_old_to_new, self.multiproc, self.multiproc_cpus, self.log_path, self.log_level)        
         
 
         validation_df = validation_df.reset_index(drop=True)
