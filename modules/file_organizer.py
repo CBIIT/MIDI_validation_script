@@ -9,6 +9,7 @@ This module is used to validate the curation process
 import os
 import pandas as pd
 import logging
+import math
 
 from modules.file_indexer import file_indexer
 from modules.answer_preparer import answer_preparer
@@ -28,7 +29,8 @@ class file_organizer(object):
         validation_dfs = []
         
         files = dir_df['instance'].unique()
-        batch_size = len(files) // (multiproc_cpus * 10) + (1 if len(files) % multiproc_cpus > 0 else 0)
+        batch_size = max(1, min(50, math.ceil(len(files) / multiproc_cpus))) # min 1, max 250 files in a batch
+        #batch_size = len(files) // (multiproc_cpus * 10) + (1 if len(files) % multiproc_cpus > 0 else 0)
         file_batches = [files[i:i + batch_size] for i in range(0, len(files), batch_size)]        
         
         logging.info(f'{len(file_batches)} File Batches to Validate')

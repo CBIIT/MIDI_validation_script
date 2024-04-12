@@ -15,15 +15,17 @@ import concurrent.futures as futures
 from tqdm import tqdm
 import warnings
 import hashlib
+import math
 
 class directory_indexer(object):
 
     def get_directory_listing(self, path, multiproc, multiproc_cpus):
 
-        dir_files = self.get_directory_files(path)
-        batch_size = len(dir_files) // (multiproc_cpus * 5) + (1 if len(dir_files) % multiproc_cpus > 0 else 0)
-        batches = [dir_files[i:i + batch_size] for i in range(0, len(dir_files), batch_size)]
-
+        files = self.get_directory_files(path)
+        batch_size = max(1, min(50, math.ceil(len(files) / multiproc_cpus))) # min 1, max 250 files in a batch
+        #batch_size = len(dir_files) // (multiproc_cpus * 5) + (1 if len(dir_files) % multiproc_cpus > 0 else 0)
+        batches = [files[i:i + batch_size] for i in range(0, len(files), batch_size)]
+        
         file_dicts = []
         
         if multiproc:
