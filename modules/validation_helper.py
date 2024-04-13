@@ -73,6 +73,7 @@ class validation_helper(object):
         # ---------------------------
         self.uids_old_to_new = {}
         uid_file = pd.read_csv(uid_mapping_file, na_values=[], keep_default_na=False, converters={'id_old':str,'id_new':str})
+        uid_file.drop_duplicates(subset='id_old', keep='first', inplace=True)
         self.uids_new_to_old = uid_file[['id_new','id_old']].set_index('id_new')['id_old'].to_dict()
         uid_file = uid_file.applymap(lambda x: f'<{x}>')
         self.uids_old_to_new = uid_file[['id_old','id_new']].set_index('id_old')['id_new'].to_dict()
@@ -83,6 +84,7 @@ class validation_helper(object):
         # ---------------------------
         self.patids_old_to_new = {}
         patid_file = pd.read_csv(patid_mapping_file, na_values=[], keep_default_na=False, converters={'id_old':str,'id_new':str})
+        patid_file.drop_duplicates(subset='id_old', keep='first', inplace=True)
         patid_file = patid_file.applymap(lambda x: f'<{x}>')
         self.patids_old_to_new = patid_file[['id_old','id_new']].set_index('id_old')['id_new'].to_dict()
 
