@@ -11,43 +11,47 @@ import pandas as pd
 import numpy as np
 import sqlite3 as sql
 import logging
-import copy
+import concurrent.futures as futures
+import json
+from tqdm import tqdm
 
 
 class reports_helper(object):
 
-    def __init__(self, config, log_path, log_level):
+    def __init__(self, config):
 
         logging.info('Initialization Started')
 
-        run_name = config['run_name']
-        input_data_path = config['input_data_path']
-        output_data_path = config['output_data_path']
-        answer_db_file = config['answer_db_file']
-        uid_mapping_file = config['uid_mapping_file']
-        multiproc = eval(config['multiprocessing'])
-        multiproc_cpus = config['multiprocessing_cpus']
+        self.config = config
+
+        # input_data_path = config['input_data_path']
+        # answer_db_file = config['answer_db_file']
+        # uid_mapping_file = config['uid_mapping_file']
+        
+        # multiprocessing
+        self.multiproc = eval(config['multiprocessing'])
+        self.multiproc_cpus = 0 if config['multiprocessing_cpus'] == '' else int(config['multiprocessing_cpus'])
 
         # output path
         # ---------------------------
+        run_name = config['run_name']
+        output_data_path = config['output_data_path']
         self.output_path = os.path.join(output_data_path, run_name)
 
-        # validation db
+        # validation data
         # ---------------------------
         validation_db_path = os.path.join(self.output_path, "validation_results.db")
         validation_db_conn = sql.connect(validation_db_path)
-
-        # validation file
-        # ---------------------------
         validation_query = "select * from validation_results"
         self.validation_df = pd.read_sql(validation_query, validation_db_conn, index_col='index')
-
         validation_db_conn.close()
 
         # logging
         # ---------------------------
-        self.log_path = log_path
-        self.log_level = log_level
+        self.log_path = config['log_path']
+        self.log_level = config['log_level']    
+        
+        self.series_based = eval(config['report_series'])
 
         logging.info('Initialization Complete')
 
@@ -56,46 +60,72 @@ class reports_helper(object):
         #-------------------------------------
         # Run Reports
         #-------------------------------------
+
         logging.info('Report Generation Started')
 
-        logging.info('Discrepancy Report Started')
-        discrepancy_df = self.discrepancy_report()
-        if not discrepancy_df.empty:
-            #discrepancy_df.to_excel(report_writer, 'Discrepancies', index=True)
-            discrepancy_path = os.path.join(self.output_path, 'discrepancy_report.csv')
-            discrepancy_df.to_csv(discrepancy_path)
-        logging.info('Discrepancy Report Complete')
+        report_tasks = {'Discrepancy Report': self.discrepancy_report,
+                        'Scoring Report': self.scoring_report,
+                        'Action Report': self.action_report,
+                        'Category Report': self.category_report,
+                        'Category Scoring Report': self.category_scoring_report}        
 
-        report_path = os.path.join(self.output_path, 'scoring_report.xlsx')
+        report_results = {}
 
-        logging.info('Action Report Started')        
-        action_df, action_pivot = self.action_report()
-        if not action_pivot.empty:
-            with pd.ExcelWriter(report_path, mode='w') as report_writer:
-                action_pivot.to_excel(report_writer, 'Actions', index=True)
-            #action_path = os.path.join(self.output_path, 'action_report.csv')
-            #action_df.to_csv(action_path)
-        logging.info('Action Report Complete')
+        if self.multiproc:
+            workers = max(1, min(self.multiproc_cpus, os.cpu_count(), 60))
+            
+            with futures.ProcessPoolExecutor(max_workers=workers) as executor:
+                
+                futures_list = {executor.submit(task): name for name, task in report_tasks.items()}
+                
+                progress_bar = tqdm(futures.as_completed(futures_list.keys()), total=len(report_tasks), desc='Generating Reports')
+                
+                for future in progress_bar:
+                    name = futures_list[future]
+                    try:
+                        report_results[name] = future.result()
+                        progress_bar.set_postfix_str(f"{name} Complete")
+                            
+                    except Exception as e:
+                        logging.error(f"Error generating {name}: {e}")
+                        
+        else:
+            progress_bar = tqdm(report_tasks.items(), total=len(report_tasks), desc='Generating Reports')
+            
+            for name, task in progress_bar:
+                try:
+                    result = task()
+                    report_results[name] = result
+                    progress_bar.set_postfix_str(f"{name} Complete")
+                    
+                except Exception as e:
+                    logging.error(f"Error generating {name}: {e}")
 
-        logging.info('Category Report Started')
-        category_df, category_pivot = self.category_report()
-        if not category_pivot.empty:
-            with pd.ExcelWriter(report_path, mode='a') as report_writer:
-                category_pivot.to_excel(report_writer, 'Categories', index=True)
-            #category_path = os.path.join(self.output_path, 'category_report.csv')
-            #category_df.to_csv(category_path)
-        logging.info('Category Report Complete')
-
-        logging.info('Scoring Report Started')
-        scoring_df, scoring_pivot = self.scoring_report(category_df)
-        if not scoring_pivot.empty:
-            with pd.ExcelWriter(report_path, mode='a') as report_writer:
-                scoring_pivot.to_excel(report_writer, 'Scoring', index=True)
-            #scoring_path = os.path.join(self.output_path, 'scoring_report.csv')
-            #scoring_df.to_csv(scoring_path)
-        logging.info('Scoring Report Complete')
-
-        # report_writer.save()
+        output_file = os.path.join(self.output_path, 'scoring_report_series.xlsx' if self.series_based else 'scoring_report_instance.xlsx')
+        with pd.ExcelWriter(output_file, engine='openpyxl', mode='w') as report_writer:
+            
+            for name, _ in tqdm(report_tasks.items(), total=len(report_results), desc='Writing Reports'):
+                report = report_results.get(name)
+                if report is not None:
+                    if name == 'Discrepancy Report':
+                        discrepancy_path = os.path.join(self.output_path, 'discrepancy_report.csv')
+                        report.to_csv(discrepancy_path)
+                    elif name == 'Action Report':
+                        action_df, action_pivot = report
+                        if not action_pivot.empty:
+                            action_pivot.to_excel(report_writer, 'Actions', index=True) 
+                    elif name == 'Category Report':
+                        category_df, category_pivot = report
+                        if not category_pivot.empty:
+                            category_pivot.to_excel(report_writer, 'Categories', index=True)
+                    elif name == 'Scoring Report':
+                        scoring_df, scoring_pivot = report
+                        if not scoring_pivot.empty:
+                            scoring_pivot.to_excel(report_writer, 'Scoring', index=False)
+                    elif name == 'Category Scoring Report':
+                        scoring_df, scoring_pivot = report
+                        if not scoring_pivot.empty:
+                            scoring_pivot.to_excel(report_writer, 'Category Scoring', index=True)                            
 
         logging.info('Report Generation Complete')
 
@@ -109,91 +139,161 @@ class reports_helper(object):
         total_df.loc[total_df.tag_name == '<LUT Data>', 'answer_value'] = '<Removed>'
         total_df.loc[total_df.tag_name == '<LUT Data>', 'action_text'] = '<Removed>'
 
-        total_df = total_df[['check_passed','check_score','tag_ds','tag_name','file_value','answer_value','action','action_text','answer_category','modality','class','patient','study','series','instance','file_name','file_path']]
-
-        #if tag_name = '<LUT Data>'
-        #   file_value = '<Removed>'
-        #   answer_value = '<Removed>'
-        #   action_text = '<Removed>'
-
-        #total_df.to_csv(os.path.join(self.output_path, "total_report_test.csv"))
-
+        total_df = total_df[['check_passed','check_score','tag_ds','tag_name','file_value','answer_value','action','action_text',
+                             'hipaa_z', 'hipaa_m', 'dicom_p15', 'dicom_iod', 'dicom_safe', 'tcia_ptkb', 'tcia_p15', 'tcia_rev', 'prev_cat',
+                             'modality','class','patient','study','series','instance','file_name','file_path']]
+        
         return total_df
 
     def action_report(self):
 
-        action_df = self.validation_df[['action','check_passed']].copy()
+        action_df = self.validation_df.copy()
+        if self.series_based:
+            action_df.drop(columns=['file_index','check_index','instance','file_name','file_path'], inplace=True)
+            action_df = action_df.drop_duplicates()
+        
+        action_df = action_df[['action','check_passed']].copy()
         action_df['check_passed'] = action_df['check_passed'].fillna(-1)
+        
         action_pivot = pd.pivot_table(action_df, index=['action'], columns=['check_passed'], aggfunc=len, fill_value=0, dropna=False)
         action_pivot = action_pivot.rename(columns={'action':'Action',-1:'Blank',0:'Fail',1:'Pass'})
         action_pivot = action_pivot.reset_index()
         action_pivot.loc['Total']= action_pivot.sum(numeric_only=True, axis=0)
         action_pivot.loc[:,'Total'] = action_pivot.sum(numeric_only=True, axis=1)
         
-        #action_pivot['total'] = action_pivot.sum(axis=1)
-        #action_pivot.to_csv(os.path.join(self.output_path, "action_report_test.csv"))
-
         return action_df, action_pivot
+
+    def check_category(self, row):
+        if row.action in ['<tag_retained>','<text_notnull>']:
+            return ('dicom', row['dicom_iod'])
+        elif row.action in ['<date_shifted>']:
+            return ('hipaa', 'HIPAA-C')
+        elif row.action in ['<uid_changed>']:
+            return ('hipaa', 'HIPAA-R')
+        elif row.action in ['<pixels_hidden>']:
+            return ('hipaa', 'HIPAA-A')
+        elif row.action in ['<patid_consistent>']:
+            return ('dicom', 'DICOM-P15-BASIC-C')
+        elif row.action in ['<uid_consistent>']:
+            return ('dicom', 'DICOM-P15-BASIC-U')
+        elif row.action in ['<pixels_retained>']:
+            return ('tcia', 'TCIA-P15-PIX-K')
+        elif row.action in ['<text_removed>']:
+            if row['hipaa_m']:
+                return ('hipaa', row['hipaa_m'])
+            elif row['hipaa_z']:
+                return ('hipaa', row['hipaa_z'])
+            elif row['tcia_p15']:
+                return ('tcia', row['tcia_p15'])
+            elif row['tcia_ptkb']:
+                return ('tcia', row['tcia_ptkb'])
+            elif row['tcia_rev']:
+                return ('tcia', row['tcia_rev'])
+        elif row.action in ['<text_retained>']:
+            if row['tcia_p15']:
+                return ('tcia', row['tcia_p15'])
+            elif row['tcia_ptkb']:
+                return ('tcia', row['tcia_ptkb'])
+            elif row['tcia_rev']:
+                return ('tcia', row['tcia_rev'])                
+        else:
+            return 0
 
     def category_report(self):
 
-        initial_df = self.validation_df[['action','check_passed','check_score','answer_category']].copy()
-        initial_df['answer_category'] = initial_df['answer_category'].apply(lambda x: str(x).replace('<','').replace('>','').replace('[]',"['tcia_standard']"))
+        total_df = self.validation_df.copy()
+        if self.series_based:
+            total_df.drop(columns=['file_index','check_index','instance','file_name','file_path'], inplace=True)
+            total_df = total_df.drop_duplicates()
         
-        category_dict = {}
-        category_iter = 0
+        category_tuples = total_df.apply(self.check_category, axis=1)
 
-        for index, row in initial_df.iterrows():
-            cat_list = eval(row.answer_category)
-            cat_list = list(dict.fromkeys(cat_list))
+        total_df['category'] = category_tuples.apply(lambda x: x[0] if x != 0 else 'unknown')
+        total_df['subcategory'] = category_tuples.apply(lambda x: x[1] if x != 0 else 'unknown')
 
-            for category in cat_list:            
-            
-                category_dict[category_iter] = {}
-                category_dict[category_iter]['check_passed'] = row.check_passed
-                category_dict[category_iter]['answer_category'] = category
-
-                category_iter += 1
-
-        category_df = pd.DataFrame.from_dict(category_dict, orient='index')
+        category_df = total_df[['category','subcategory','check_passed']].copy()
         category_df['check_passed'] = category_df['check_passed'].fillna(-1)
-        category_pivot = pd.pivot_table(category_df, index=['answer_category'], columns=['check_passed'], aggfunc=len, fill_value=0, dropna=False)
-        category_pivot = category_pivot.rename(columns={'answer_category':'Category',-1:'Blank',0:'Fail',1:'Pass'})
-        category_pivot.index.names = ['Category']
+        
+        category_pivot = pd.pivot_table(category_df, index=['category','subcategory'], columns=['check_passed'], aggfunc=len, fill_value=0) #, dropna=False)
+        category_pivot = category_pivot.rename(columns={'category':'Category','subcategory':'Subcategory', -1:'Blank',0:'Fail',1:'Pass'})
+        
         category_pivot = category_pivot.reset_index()
+        
         category_pivot.loc['Total']= category_pivot.sum(numeric_only=True, axis=0)
         category_pivot.loc[:,'Total'] = category_pivot.sum(numeric_only=True, axis=1)
 
-        #category_pivot.to_csv(os.path.join(self.output_path, "category_report_test.csv"))
-
         return category_df, category_pivot
 
-    def scoring_report(self, category_df):
+    def scoring_report(self):
+        
+        scoring_df = self.validation_df.copy()
+        if self.series_based:
+            scoring_df.drop(columns=['file_index','check_index','instance','file_name','file_path'], inplace=True)
+            scoring_df = scoring_df.drop_duplicates()
 
-        def get_score_cat(category):
-
-            hipaa_cats = ['patient_name','patient_mrn','patient_birth_date',
-                          'patient_ssn','patient_address','patient_telephone']
-
-            if category == 'dicom_standard':
-                return 'Category 2 - DICOM Standard'
-            elif category in hipaa_cats:
-                return 'Category 1 - HIPAA'
-            else:
-                return 'Category 3 - Best Practice'
-
-        scoring_df = category_df.copy()
-        scoring_df['score_cat'] = scoring_df['answer_category'].apply(lambda x: get_score_cat(x))
-        scoring_df = scoring_df[['check_passed','score_cat']]
+        scoring_df['score_cat'] = "All"
+        scoring_df = scoring_df[['check_passed','score_cat']].copy()
+        scoring_df['check_passed'] = scoring_df['check_passed'].fillna(-1)
 
         scoring_pivot = pd.pivot_table(scoring_df, index=['score_cat'], columns=['check_passed'], aggfunc=len, fill_value=0, dropna=False)
-        scoring_pivot = scoring_pivot.rename(columns={'score_cat':'Category',-1:'Blank',0:'Fail',1:'Pass'})
+        scoring_pivot = scoring_pivot.rename(columns={'score_cat':'Category', -1:'Blank',0:'Fail',1:'Pass'})
         scoring_pivot.index.names = ['Category']
         scoring_pivot = scoring_pivot.reset_index()
         scoring_pivot.loc['Total']= scoring_pivot.sum(numeric_only=True, axis=0)
-        scoring_pivot.loc[:,'Total'] = scoring_pivot.sum(numeric_only=True, axis=1)
+        scoring_pivot.loc[:,'Total'] = scoring_pivot.sum(numeric_only=True, axis=1)  
 
-        scoring_weights = {'Category 1 - HIPAA':50, 'Category 2 - DICOM Standard':30, 'Category 3 - Best Practice':20, }
+        scores = []
+        final_score = 0.0
+
+        pivot_iter = scoring_pivot.copy()
+
+        for index, row in pivot_iter.iterrows():
+
+            # if index == 'Total':
+            #     final_score_str = '{percent:.2%}'.format(percent=final_score)
+            #     scoring_pivot.at[index, 'Weighted_score'] = final_score_str
+            # else:
+            failed = row.Fail if 'Fail' in row else 0
+            passed = row.Pass  if 'Pass' in row else 0
+            total = row.Total if 'Total' in row else 0
+
+            cat_score = (passed/total)
+            cat_score_str = '{percent:.2%}'.format(percent=cat_score)
+
+            scoring_pivot.at[index, 'Score'] = cat_score_str
+
+        scoring_pivot.drop('Total', inplace=True)
+
+        return scoring_df, scoring_pivot
+
+    def category_scoring_report(self):
+        
+        scoring_df = self.validation_df.copy()
+        if self.series_based:
+            scoring_df.drop(columns=['file_index','check_index','instance','file_name','file_path'], inplace=True)
+            scoring_df = scoring_df.drop_duplicates()
+            
+        category_tuples = scoring_df.apply(self.check_category, axis=1)
+        scoring_df['score_cat'] = category_tuples.apply(lambda x: x[0] if x != 0 else 'unknown')
+        
+        category_map = {
+            'hipaa': 'Category 1 - HIPAA',
+            'dicom': 'Category 2 - DICOM Standard',
+            'tcia': 'Category 3 - Best Practice'
+        }
+        scoring_df['score_cat'] = scoring_df['score_cat'].map(category_map)
+        
+        scoring_df = scoring_df[['check_passed','score_cat']].copy()
+        scoring_df['check_passed'] = scoring_df['check_passed'].fillna(-1)
+        
+        scoring_pivot = pd.pivot_table(scoring_df, index=['score_cat'], columns=['check_passed'], aggfunc=len, fill_value=0, dropna=False)
+        scoring_pivot = scoring_pivot.rename(columns={'score_cat':'Category', -1:'Blank',0:'Fail',1:'Pass'})
+        scoring_pivot.index.names = ['Category']
+        scoring_pivot = scoring_pivot.reset_index()
+        scoring_pivot.loc['Total']= scoring_pivot.sum(numeric_only=True, axis=0)
+        scoring_pivot.loc[:,'Total'] = scoring_pivot.sum(numeric_only=True, axis=1)        
+
+        scoring_weights = {'Category 1 - HIPAA':70, 'Category 2 - DICOM Standard':20, 'Category 3 - Best Practice':10, }
 
         scores = []
         final_score = 0.0
@@ -205,7 +305,7 @@ class reports_helper(object):
             if index == 'Total':
                 # final_score = sum(scores)
                 final_score_str = '{percent:.2%}'.format(percent=final_score)
-                scoring_pivot.at[index, 'Weighted_score'] = final_score_str
+                scoring_pivot.at[index, 'Weighted Score'] = final_score_str
             else:
                 weight = scoring_weights[row.Category]
                 failed = row.Fail if 'Fail' in row else 0
@@ -221,6 +321,6 @@ class reports_helper(object):
 
                 scoring_pivot.at[index, 'Weight'] = weight
                 scoring_pivot.at[index, 'Score'] = cat_score_str
-                scoring_pivot.at[index, 'Weighted_score'] = add_score_str
+                scoring_pivot.at[index, 'Weighted Score'] = add_score_str
 
         return scoring_df, scoring_pivot

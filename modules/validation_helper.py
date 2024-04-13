@@ -11,6 +11,9 @@ import pandas as pd
 import sqlite3 as sql
 import logging
 import shutil
+import json
+from tqdm import tqdm
+import time
 
 
 from modules.directory_indexer import directory_indexer
@@ -129,12 +132,40 @@ class validation_helper(object):
         f_organizer = file_organizer()
         validation_df = f_organizer.run_validation(dir_df, self.output_path, self.answer_df, self.uids_old_to_new, self.uids_new_to_old, self.patids_old_to_new, self.multiproc, self.multiproc_cpus, self.log_path, self.log_level)        
         
-
         validation_df = validation_df.reset_index(drop=True)
+        
         logging.info('Validation Complete')
+
+        logging.info('Generating Categories')
+        
+        tqdm.pandas(desc="Parsing JSON")        
+        validation_df['category_json'] = validation_df['answer_category_v2'].progress_apply(lambda x: json.loads(x.strip('<>')))
+               
+        # progress_bar = tqdm(total=1, desc="Normalizing JSON")       
+        #progress_bar.set_description("Normalizing JSON")
+        logging.info('Normalizing JSON')
+        json_df = pd.json_normalize(validation_df['category_json'])        
+        json_df.index = validation_df.index
+        json_df.rename(columns={'hipaa.z':'hipaa_z','hipaa.m':'hipaa_m','dicom.p15':'dicom_p15','dicom.iod':'dicom_iod',
+                                'dicom.safe':'dicom_safe','tcia.ptkb':'tcia_ptkb','tcia.p15':'tcia_p15','tcia.rev':'tcia_rev'}, inplace=True)        
+        json_df['prev_cat'] = json_df['prev_cat'].astype(str)      
+        # progress_bar.update(1)        
+        # progress_bar.close()
+
+    
+        # progress_bar = tqdm(total=1, desc="Combining JSON")
+        #progress_bar.set_description("Combining JSON")
+        logging.info('Combining JSON')
+        combined_df = pd.concat([validation_df.drop(columns=['category_json', 'answer_category_v2']), json_df], axis=1)
+        # progress_bar.update(1)
+        # progress_bar.close()
+
+        logging.info('Categories Complete')        
         
         logging.info('Writing Results')
-        validation_df.to_sql('validation_results', self.validation_db_conn, if_exists='replace')
+        combined_df.to_sql('validation_results', self.validation_db_conn, if_exists='replace')
+        
+
 
         if len(validation_df) != 0:
             #-------------------------------------

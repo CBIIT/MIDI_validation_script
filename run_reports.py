@@ -23,7 +23,6 @@ def initialize_logging(config, start_time):
 
     str_date = start_time.strftime("%Y%m%d%H%M%S")
     log_file = os.path.join(log_path, f'{str_date}_{run_name}_reports.log')
-    #log_file = f'{log_path}\\{str_date}_{run_name}_reports.log'
 
     set_level = logging.INFO
     if log_level == 'debug':
@@ -56,13 +55,6 @@ def main(argv):
         config_name = argv[0]
 
         #config_name = "config_local_test.json"
-        #config_name = "config_server_test.json"
-        #config_name = "config_server_group_1.json"
-        #config_name = "config_server_group_2.json"
-        #config_name = "config_server_group_3.json"
-        #config_name = "config_server_group_4.json"
-        #config_name = "config_server_group_5.json"
-        #config_name = "config_server_group_6.json"
 
         #------------------------------------------
         # Load Config
@@ -81,7 +73,7 @@ def main(argv):
         # Run Validation
         #------------------------------------------
 
-        helper = reports_helper(config, log_path, log_level)
+        helper = reports_helper(config)
         helper.run_reports()
 
         #------------------------------------------
