@@ -15,8 +15,15 @@ import string
 import traceback
 from nltk.tokenize import word_tokenize
 from nltk.corpus import stopwords
-
 import concurrent.futures as futures
+import pydicom
+import easyocr
+import re
+
+# for testing (not requirement)
+# ------------------------------
+# import matplotlib.pyplot as plt
+# ------------------------------
 
 
 class curation_validator(object):
@@ -34,27 +41,27 @@ class curation_validator(object):
 
         error_dicts = []
 
-        cpu_count = os.cpu_count()
+        # cpu_count = os.cpu_count()
 
-        if multiproc and len(file_data) > (multiproc_cpus * 100):           
-            workers = max(1, min(multiproc_cpus, os.cpu_count(), 60))
+        # if multiproc and len(file_data) > (multiproc_cpus * 100):           
+        #     workers = max(1, min(multiproc_cpus, os.cpu_count(), 60))
             
-            file_lists = np.array_split(file_data, workers)
+        #     file_lists = np.array_split(file_data, workers)
             
-            with futures.ProcessPoolExecutor(max_workers=workers) as executor:
+        #     with futures.ProcessPoolExecutor(max_workers=workers) as executor:
 
-                futures_list = []
+        #         futures_list = []
 
-                for file_list in file_lists:
-                    futures_list.append(executor.submit(self.validate_files, file_list, answer_data, uids_old_to_new, patids_old_to_new, log_path, log_level))
+        #         for file_list in file_lists:
+        #             futures_list.append(executor.submit(self.validate_files, file_list, answer_data, uids_old_to_new, patids_old_to_new, log_path, log_level))
 
-                for future in futures.as_completed(futures_list):
-                    result = future.result()
-                    error_dicts.append(result)
+        #         for future in futures.as_completed(futures_list):
+        #             result = future.result()
+        #             error_dicts.append(result)
 
-        else:
-            result = self.validate_files(file_data, answer_data, uids_old_to_new, patids_old_to_new, log_path, log_level)
-            error_dicts.append(result)
+        # else:
+        result = self.validate_files(file_data, answer_data, uids_old_to_new, patids_old_to_new, log_path, log_level)
+        error_dicts.append(result)
 
         #---------------------------
 
@@ -391,19 +398,6 @@ class curation_validator(object):
 
         return error_iter, error_dict
 
-    def validate_pixels_hidden(self, data_check, file_index, file_row, error_dict, error_iter):
-
-        for check_index, check_row in data_check.iterrows():
-
-            try:                    
-                error_iter, error_dict = self.log_error(error_dict, error_iter, file_index, file_row, check_index, check_row, None, None, None)
-
-            except:
-                error = traceback.format_exc()
-                logging.error(f'action: pixels_hidden | file_path: {file_row.file_path} | instance: {file_row.instance} | tag: {check_row.tag_ds} \n{error}')
-
-        return error_iter, error_dict
-
     def validate_pixels_retained(self, data_check, file_index, file_row, error_dict, error_iter):
 
         for check_index, check_row in data_check.iterrows():
@@ -583,6 +577,98 @@ class curation_validator(object):
 
         return check_pass, check_score
 
+    def validate_pixels_hidden(self, data_check, file_index, file_row, error_dict, error_iter):
 
+        def check_text_removal_threshold(file_path, action_text, bounding_box):
+
+            # check based on the pixel intensity of the region
+            # Text is all white, but backgrounds are varying degress of dark grey to black.
+            # If the text is removed, the mean pixel intensity of the region should be significantly lower. Close to zero if black boxed.
+            # CORRECTION: Text is not always white on dark background, it can be black on light background.            
+            # This will only work if I note the original intensity of the region and dark/light or light/dark.
+            # Not worth pursuing at this time. Moving on to OCR.
+            pixel_data = pydicom.dcmread(file_path).pixel_array            
+            pixel_region = pixel_data[bounding_box[1]:bounding_box[3], bounding_box[0]:bounding_box[2]]
+            
+            # plt.figure(figsize=(5, 5))
+            # plt.imshow(pixel_region, cmap='gray')  # Use 'gray' colormap for better visualization of grayscale images
+            # plt.title("Extracted Pixel Region")
+            # plt.axis('off')  # Turn off axis labels
+            # plt.show()
+
+            # Normalize pixel values to 0-255
+            if pixel_data.dtype == np.uint16:
+                scaled_region = (255 * (pixel_region / np.max(pixel_region))).astype(np.uint8)
+            else:
+                scaled_region = pixel_region.astype(np.uint8)
+
+            pixel_threshold_mean = np.mean(scaled_region)
+            
+            a='a'
+            
+        def get_ocr_text(file_path, bounding_box):
+
+            # Check bounding box for text using OCR
+            # -----------------------------------
+            # Tried pytesseract, but it was not very portable.
+            # Couldn't get keras-ocr to work in my environment.
+            # EasyOCR seems pretty reliable for our basic needs.
+            # It is also fast since we restrict to the bounding box.
+
+            pixel_data = pydicom.dcmread(file_path).pixel_array            
+            pixel_region = pixel_data[bounding_box[1]:bounding_box[3], bounding_box[0]:bounding_box[2]]
+            
+            if pixel_data.dtype == np.uint16:
+                scaled_region = (255 * (pixel_region / np.max(pixel_region))).astype(np.uint8)
+            else:
+                scaled_region = pixel_region.astype(np.uint8)
+                
+            reader = easyocr.Reader(['en'], verbose=False)
+            results = reader.readtext(scaled_region)
+
+            ocr_text = ' '.join([text[1] for text in results])
+
+            return scaled_region, ocr_text
+                        
+        # ---------------------------------
+        for check_index, check_row in data_check.iterrows():
+
+            file_value = None
+            check_pass = None
+            check_score = None
+
+            try:                    
+                file_path = file_row.file_path.strip('<>')
+
+                action_dict = json.loads(check_row.action_text.strip('<>'))
+                check_value = action_dict['text'].replace('\n',' ').replace('DOB:','')
+                check_value = re.sub(r'\[[A-Za-z]\]', '', check_value)
+               
+                #(start_x, start_y, end_x, end_y)
+                bounding_box = (int(action_dict['top_left'][0]), int(action_dict['top_left'][1]), 
+                                int(action_dict['bottom_right'][0]), int(action_dict['bottom_right'][1]))                
+
+                file_image, file_value = get_ocr_text(file_path, bounding_box)
+                
+                if file_value:
+                    check_pass, check_score = self.validate_text(file_value, check_value, 'remove')
+                else:
+                    check_pass = True
+                    check_score = 1                    
+
+                # plt.figure(figsize=(8, 8))
+                # plt.imshow(file_image, cmap='gray')
+                # plt.title("Pixel Validation Region")
+                # plt.axis('off')
+                # plt.figtext(0.5, 0.01, f"OCR Text: {file_value}\n\nAction Text: {check_value}\n\nPass: {'yes' if check_pass else 'no'}  |  Score: {check_score:.2f}\n\n", ha='center', fontsize=10, bbox={"facecolor":"orange", "alpha":0.5, "pad":5})
+                # plt.show()
+                
+                error_iter, error_dict = self.log_error(error_dict, error_iter, file_index, file_row, check_index, check_row, file_value, check_pass, check_score)
+
+            except:
+                error = traceback.format_exc()
+                logging.error(f'action: pixels_hidden | file_path: {file_row.file_path} | instance: {file_row.instance} | tag: {check_row.tag_ds} \n{error}')
+
+        return error_iter, error_dict
 
 
