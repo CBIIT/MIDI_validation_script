@@ -46,7 +46,13 @@ class file_organizer(object):
 
                 for batch in file_batches:
 
-                    lookup_uids = [uids_new_to_old[instance] for instance in batch]
+                    #lookup_uids = [uids_new_to_old[instance] for instance in batch]
+                    lookup_uids = []
+                    for instance in batch:
+                        if instance in uids_new_to_old:
+                            lookup_uids.append(uids_new_to_old[instance])
+                        else:
+                            logging.error(f'Instance {instance} not found in UID mapping')                      
 
                     file_df = dir_df[dir_df['instance'].isin(batch)]
                     file_answer_df = answer_df[answer_df['SOPInstanceUID'].isin(lookup_uids)]
