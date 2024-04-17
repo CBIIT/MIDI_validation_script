@@ -8,7 +8,7 @@ import sys
 import os
 import subprocess
 import re
-from pydicom import dcmread
+from pydicom import dcmread, errors as dcm_errors
 import pandas as pd
 import concurrent.futures as futures
 import logging
@@ -67,48 +67,53 @@ class dciodvfy_runner(object):
         #logging.info(f'Checking {file_path}')
 
         with open(file_path, 'rb') as dcm:
-            dataset = dcmread(dcm, force=True)
+            #dataset = dcmread(dcm, force=True)
+            try:
+                dataset = dcmread(dcm, force=False)
+            except dcm_errors.InvalidDicomError:
+                dataset = None            
 
-        dcm_modality = dataset.Modality if 'Modality' in dataset else None
-        dcm_class = dataset.SOPClassUID if 'SOPClassUID' in dataset else None
-        dcm_patient = dataset.PatientID if 'PatientID' in dataset else None
-        dcm_study = dataset.StudyInstanceUID if 'StudyInstanceUID' in dataset else None
-        dcm_series = dataset.SeriesInstanceUID if 'SeriesInstanceUID' in dataset else None
-        dcm_instance = dataset.SOPInstanceUID if 'SOPInstanceUID' in dataset else None
-        dcm_file_name = f'<{file}>'
-        dcm_file_path = f'<{file_path}>'
+        if dataset:
+            dcm_modality = dataset.Modality if 'Modality' in dataset else None
+            dcm_class = dataset.SOPClassUID if 'SOPClassUID' in dataset else None
+            dcm_patient = dataset.PatientID if 'PatientID' in dataset else None
+            dcm_study = dataset.StudyInstanceUID if 'StudyInstanceUID' in dataset else None
+            dcm_series = dataset.SeriesInstanceUID if 'SeriesInstanceUID' in dataset else None
+            dcm_instance = dataset.SOPInstanceUID if 'SOPInstanceUID' in dataset else None
+            dcm_file_name = f'<{file}>'
+            dcm_file_path = f'<{file_path}>'
                 
-        proc = subprocess.Popen([software_path, '-new', file_path], stderr=subprocess.PIPE)
-        allMessages = proc.communicate()[1].decode().split('\n')
-        for message in allMessages:
-            if re.search('^Error|Warning', message):
-                errors[error_iter] = {}
+            proc = subprocess.Popen([software_path, '-new', file_path], stderr=subprocess.PIPE)
+            allMessages = proc.communicate()[1].decode().split('\n')
+            for message in allMessages:
+                if re.search('^Error|Warning', message):
+                    errors[error_iter] = {}
 
-                msg_type = re.search('^Error|Warning', message)
-                if msg_type:
-                    errors[error_iter]['type'] = f'<{msg_type.group(0)}>'
-                else:
-                    errors[error_iter]['type'] = message
-                msg_tag = re.search('(?<=\<)(.*?)(?=\>)', message)
-                if msg_tag:
-                    errors[error_iter]['tag'] = f'<{msg_tag.group(0)}>'
-                else:
-                    errors[error_iter]['tag'] = message
-                msg_msg = re.search('(?<=\> - ).*$', message)
-                if msg_msg:
-                    errors[error_iter]['message'] = f'<{msg_msg.group(0)}>'
-                else:
-                    errors[error_iter]['message'] = message
-                #errors[error_iter]['full'] = message
-                errors[error_iter]['modality'] = '<' + dcm_modality + '>'
-                errors[error_iter]['class'] = '<' + dcm_class + '>'
-                errors[error_iter]['patient'] = '<' + dcm_patient + '>'
-                errors[error_iter]['study'] = '<' + dcm_study + '>'
-                errors[error_iter]['series'] = '<' + dcm_series + '>'
-                errors[error_iter]['instance'] = '<' + dcm_instance + '>'
-                errors[error_iter]['file_name'] = dcm_file_name
-                errors[error_iter]['file_path'] = dcm_file_path
-                error_iter += 1
+                    msg_type = re.search('^Error|Warning', message)
+                    if msg_type:
+                        errors[error_iter]['type'] = f'<{msg_type.group(0)}>'
+                    else:
+                        errors[error_iter]['type'] = message
+                    msg_tag = re.search('(?<=\<)(.*?)(?=\>)', message)
+                    if msg_tag:
+                        errors[error_iter]['tag'] = f'<{msg_tag.group(0)}>'
+                    else:
+                        errors[error_iter]['tag'] = message
+                    msg_msg = re.search('(?<=\> - ).*$', message)
+                    if msg_msg:
+                        errors[error_iter]['message'] = f'<{msg_msg.group(0)}>'
+                    else:
+                        errors[error_iter]['message'] = message
+                    #errors[error_iter]['full'] = message
+                    errors[error_iter]['modality'] = '<' + dcm_modality + '>'
+                    errors[error_iter]['class'] = '<' + dcm_class + '>'
+                    errors[error_iter]['patient'] = '<' + dcm_patient + '>'
+                    errors[error_iter]['study'] = '<' + dcm_study + '>'
+                    errors[error_iter]['series'] = '<' + dcm_series + '>'
+                    errors[error_iter]['instance'] = '<' + dcm_instance + '>'
+                    errors[error_iter]['file_name'] = dcm_file_name
+                    errors[error_iter]['file_path'] = dcm_file_path
+                    error_iter += 1
 
         return errors
 

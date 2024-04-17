@@ -7,7 +7,7 @@ This module is used to index directories
 """
 
 import os
-from pydicom import dcmread
+from pydicom import dcmread, errors
 import pandas as pd
 import logging
 from glob import glob
@@ -76,10 +76,13 @@ class directory_indexer(object):
 
             try:
                 with warnings.catch_warnings():
-                    warnings.filterwarnings("ignore", message="Unknown encoding")           
+                    warnings.filterwarnings("ignore", message="Unknown encoding")
                     
                     with open(file_path, 'rb') as dcm:
-                        dataset = dcmread(dcm, force=True)
+                        try:
+                            dataset = dcmread(dcm, force=False)
+                        except errors.InvalidDicomError:
+                            continue
                         
                         pixel_digest = None
                         if 'PixelData' in dataset:
