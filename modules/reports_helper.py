@@ -66,8 +66,8 @@ class reports_helper(object):
         report_tasks = {'Discrepancy Report': self.discrepancy_report,
                         'Scoring Report': self.scoring_report,
                         'Action Report': self.action_report,
-                        'Category Report': self.category_report,
-                        'Category Scoring Report': self.category_scoring_report}        
+                        'Category Report': self.category_report} #,
+                        #'Category Scoring Report': self.category_scoring_report}        
 
         report_results = {}
 
@@ -108,8 +108,11 @@ class reports_helper(object):
                 report = report_results.get(name)
                 if report is not None:
                     if name == 'Discrepancy Report':
-                        discrepancy_path = os.path.join(self.output_path, 'discrepancy_report.csv')
-                        report.to_csv(discrepancy_path)
+                        internal_df, participant_df = report
+                        internal_path = os.path.join(self.output_path, 'discrepancy_report_internal.csv')
+                        internal_df.to_csv(internal_path)
+                        participant_path = os.path.join(self.output_path, 'discrepancy_report_participant.csv')
+                        participant_df.to_csv(participant_path)
                     elif name == 'Action Report':
                         action_df, action_pivot = report
                         if not action_pivot.empty:
@@ -138,12 +141,19 @@ class reports_helper(object):
         total_df.loc[total_df.tag_name == '<LUT Data>', 'file_value'] = '<Removed>'
         total_df.loc[total_df.tag_name == '<LUT Data>', 'answer_value'] = '<Removed>'
         total_df.loc[total_df.tag_name == '<LUT Data>', 'action_text'] = '<Removed>'
-
-        total_df = total_df[['check_passed','check_score','tag_ds','tag_name','file_value','answer_value','action','action_text',
-                             'hipaa_z', 'hipaa_m', 'dicom_p15', 'dicom_iod', 'dicom_safe', 'tcia_ptkb', 'tcia_p15', 'tcia_rev', 'prev_cat',
-                             'modality','class','patient','study','series','instance','file_name','file_path']]
         
-        return total_df
+        category_tuples = total_df.apply(self.check_category, axis=1)
+        total_df['category'] = category_tuples.apply(lambda x: x[0] if x != 0 else 'unknown')
+        total_df['subcategory'] = category_tuples.apply(lambda x: x[1] if x != 0 else 'unknown')
+
+        internal_df = total_df[['check_passed','check_score','tag_ds','tag_name','file_value','answer_value','action','action_text',
+                                'category', 'subcategory', 'hipaa_z', 'hipaa_m', 'dicom_p15', 'dicom_iod', 'dicom_safe', 'tcia_ptkb', 
+                                'tcia_p15', 'tcia_rev', 'prev_cat', 'modality','class','patient','study','series','instance','file_name','file_path']]
+        
+        participant_df = total_df[['check_passed','check_score','tag_ds','tag_name','file_value','answer_value','action','action_text',
+                                   'category', 'subcategory', 'modality','class','patient','study','series','instance','file_name','file_path']]
+        
+        return internal_df, participant_df
 
     def action_report(self):
 
