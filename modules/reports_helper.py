@@ -29,8 +29,10 @@ class reports_helper(object):
         # uid_mapping_file = config['uid_mapping_file']
         
         # multiprocessing
-        self.multiproc = eval(config['multiprocessing'])
-        self.multiproc_cpus = 0 if config['multiprocessing_cpus'] == '' else int(config['multiprocessing_cpus'])
+        # self.multiproc = eval(config['multiprocessing'])
+        # self.multiproc_cpus = 0 if config['multiprocessing_cpus'] == '' else int(config['multiprocessing_cpus'])
+        self.multiproc = False
+        self.multiproc_cpus = 1        
 
         # output path
         # ---------------------------
@@ -40,11 +42,11 @@ class reports_helper(object):
 
         # validation data
         # ---------------------------
-        self.validation_db_path = os.path.join(self.output_path, "validation_results.db")
-        # validation_db_conn = sql.connect(validation_db_path)
-        # validation_query = "select * from validation_results"
-        # self.validation_df = pd.read_sql(validation_query, validation_db_conn, index_col='index')
-        # validation_db_conn.close()
+        validation_db_path = os.path.join(self.output_path, "validation_results.db")
+        validation_db_conn = sql.connect(validation_db_path)
+        validation_query = "select * from validation_results"
+        self.validation_df = pd.read_sql(validation_query, validation_db_conn, index_col='index')
+        validation_db_conn.close()
 
         # logging
         # ---------------------------
@@ -136,11 +138,11 @@ class reports_helper(object):
 
     def discrepancy_report(self):
 
-        #total_df = self.validation_df[self.validation_df['check_passed'].isin([0, np.nan])].copy()        
-        validation_db_conn = sql.connect(self.validation_db_path)
-        validation_query = "select * from validation_results where check_passed = 0 or check_passed is null"
-        total_df = pd.read_sql(validation_query, validation_db_conn, index_col='index')
-        validation_db_conn.close()
+        total_df = self.validation_df[self.validation_df['check_passed'].isin([0, np.nan])].copy()        
+        # validation_db_conn = sql.connect(self.validation_db_path)
+        # validation_query = "select * from validation_results where check_passed = 0 or check_passed is null"
+        # total_df = pd.read_sql(validation_query, validation_db_conn, index_col='index')
+        # validation_db_conn.close()
 
         total_df.loc[total_df.tag_name == '<LUT Data>', 'file_value'] = '<Removed>'
         total_df.loc[total_df.tag_name == '<LUT Data>', 'answer_value'] = '<Removed>'
@@ -161,11 +163,11 @@ class reports_helper(object):
 
     def action_report(self):
 
-        #action_df = self.validation_df.copy()
-        validation_db_conn = sql.connect(self.validation_db_path)
-        validation_query = "select * from validation_results"
-        action_df = pd.read_sql(validation_query, validation_db_conn, index_col='index')
-        validation_db_conn.close()        
+        action_df = self.validation_df.copy()
+        # validation_db_conn = sql.connect(self.validation_db_path)
+        # validation_query = "select * from validation_results"
+        # action_df = pd.read_sql(validation_query, validation_db_conn, index_col='index')
+        # validation_db_conn.close()        
 
         if self.series_based:
             action_df.drop(columns=['file_index','check_index','instance','file_name','file_path'], errors='ignore', inplace=True)
@@ -221,11 +223,11 @@ class reports_helper(object):
 
     def category_report(self):
 
-        #total_df = self.validation_df.copy()
-        validation_db_conn = sql.connect(self.validation_db_path)
-        validation_query = "select * from validation_results"
-        total_df = pd.read_sql(validation_query, validation_db_conn, index_col='index')
-        validation_db_conn.close() 
+        total_df = self.validation_df.copy()
+        # validation_db_conn = sql.connect(self.validation_db_path)
+        # validation_query = "select * from validation_results"
+        # total_df = pd.read_sql(validation_query, validation_db_conn, index_col='index')
+        # validation_db_conn.close() 
 
         if self.series_based:
             total_df.drop(columns=['file_index','check_index','instance','file_name','file_path'], errors='ignore', inplace=True)
@@ -252,11 +254,11 @@ class reports_helper(object):
 
     def scoring_report(self):
         
-        #scoring_df = self.validation_df.copy()
-        validation_db_conn = sql.connect(self.validation_db_path)
-        validation_query = "select * from validation_results"
-        scoring_df = pd.read_sql(validation_query, validation_db_conn, index_col='index')
-        validation_db_conn.close()         
+        scoring_df = self.validation_df.copy()
+        # validation_db_conn = sql.connect(self.validation_db_path)
+        # validation_query = "select * from validation_results"
+        # scoring_df = pd.read_sql(validation_query, validation_db_conn, index_col='index')
+        # validation_db_conn.close()         
 
         if self.series_based:
             scoring_df.drop(columns=['file_index','check_index','instance','file_name','file_path'], errors='ignore', inplace=True)
@@ -300,11 +302,11 @@ class reports_helper(object):
 
     def category_scoring_report(self):
         
-        #scoring_df = self.validation_df.copy()
-        validation_db_conn = sql.connect(self.validation_db_path)
-        validation_query = "select * from validation_results"
-        scoring_df = pd.read_sql(validation_query, validation_db_conn, index_col='index')
-        validation_db_conn.close()          
+        scoring_df = self.validation_df.copy()
+        # validation_db_conn = sql.connect(self.validation_db_path)
+        # validation_query = "select * from validation_results"
+        # scoring_df = pd.read_sql(validation_query, validation_db_conn, index_col='index')
+        # validation_db_conn.close()          
 
         if self.series_based:
             scoring_df.drop(columns=['file_index','check_index','instance','file_name','file_path'], errors='ignore', inplace=True)
