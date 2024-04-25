@@ -157,7 +157,7 @@ class reports_helper(object):
                                 'tcia_p15', 'tcia_rev', 'prev_cat', 'modality','class','patient','study','series','instance','file_name','file_path']]
         
         participant_df = total_df[['check_passed','check_score','tag_ds','tag_name','file_value','answer_value','action','action_text',
-                                   'category', 'subcategory', 'modality','class','patient','study','series','instance','file_name','file_path']]
+                                   'category', 'subcategory', 'modality','class','patient','study','series','instance','file_name']]
         
         return internal_df, participant_df
 
