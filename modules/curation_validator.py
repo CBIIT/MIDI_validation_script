@@ -287,7 +287,7 @@ class curation_validator(object):
         #error_dict[error_iter]['answer_category'] = f'<{str(check_row.answer_category)}>'
         error_dict[error_iter]['answer_category_v2'] = f'<{json.dumps(check_row.answer_category_v2)}>'
 
-        error_dict[error_iter]['file_value'] = None if missing else file_value
+        error_dict[error_iter]['file_value'] = file_value
         error_dict[error_iter]['answer_value'] = check_row.value        
         
         error_dict[error_iter]['tag'] = check_row.tag
@@ -318,7 +318,7 @@ class curation_validator(object):
 
             if missing:
                 
-                file_value = "MISSING"
+                file_value = "<MISSING FILE>"
                 check_pass = False
                 check_score = 0
                 
@@ -353,7 +353,7 @@ class curation_validator(object):
 
             if missing:
                 
-                file_value = "MISSING"
+                file_value = "<MISSING FILE>"
                 check_pass = False
                 check_score = 0
                 
@@ -392,7 +392,7 @@ class curation_validator(object):
 
             if missing:
                 
-                file_value = "MISSING"
+                file_value = "<MISSING FILE>"
                 check_pass = False
                 check_score = 0
                 
@@ -430,7 +430,7 @@ class curation_validator(object):
                 
             if missing:
                 
-                file_value = "MISSING"
+                file_value = "<MISSING FILE>"
                 check_pass = True
                 check_score = 1
                 
@@ -470,7 +470,7 @@ class curation_validator(object):
 
             if missing:
                 
-                file_value = "MISSING"
+                file_value = "<MISSING FILE>"
                 check_pass = True
                 check_score = 1
                 
@@ -512,7 +512,7 @@ class curation_validator(object):
 
             if missing:
                 
-                file_value = "MISSING"
+                file_value = "<MISSING FILE>"
                 check_pass = True
                 check_score = 1
                 
@@ -554,7 +554,7 @@ class curation_validator(object):
 
             if missing:
                 
-                file_value = "MISSING"
+                file_value = "<MISSING FILE>"
                 check_pass = False
                 check_score = 0
                 
@@ -596,7 +596,7 @@ class curation_validator(object):
 
             if missing:
                 
-                file_value = "MISSING"
+                file_value = "<MISSING FILE>"
                 check_pass = False
                 check_score = 0
                 
@@ -638,7 +638,7 @@ class curation_validator(object):
 
             if missing:
                 
-                file_value = "MISSING"
+                file_value = "<MISSING FILE>"
                 check_pass = False
                 check_score = 0
                 
@@ -812,7 +812,7 @@ class curation_validator(object):
 
             if missing:
                 
-                file_value = "MISSING"
+                file_value = "<MISSING FILE>"
                 check_pass = True
                 check_score = 1
                 
