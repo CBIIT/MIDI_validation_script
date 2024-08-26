@@ -161,6 +161,102 @@ class curation_validator(object):
 
         return error_dict
 
+    def get_missing_validation_data(self, answer_data, multiproc, multiproc_cpus, log_path, log_level):
+
+        error_dicts = []
+
+        result = self.validate_missing_files(answer_data, log_path, log_level)
+        error_dicts.append(result)
+
+        #---------------------------
+
+        error_df = pd.concat((pd.DataFrame.from_dict(error_dict, 'index') for error_dict in error_dicts))
+
+        return error_df
+
+    def validate_missing_files(self, answer_data, log_path, log_level):
+
+        def initialize_logging(log_path, log_level):
+
+            logging.basicConfig(
+                level=log_level,
+                format="%(asctime)s - [%(levelname)s] - %(message)s",
+                handlers=[
+                    logging.FileHandler(log_path, 'a'),
+                    logging.StreamHandler()
+                ]
+            )
+
+        initialize_logging(log_path, log_level)
+
+        error_dict = {}
+        error_iter = 0
+
+        for answer_index, answer_row in answer_data.iterrows():
+
+            try:
+                #file_answer_data = answer_row.to_frame()
+                file_answer_data = pd.DataFrame([answer_row])
+
+                if not file_answer_data.empty:
+                    answer_df = self.flatten_answer_data(file_answer_data)
+
+                    # tag_retained
+                    # --------------------------------------------------------------
+                    tag_retain_check = answer_df[answer_df.action == '<tag_retained>']
+                    error_iter, error_dict = self.validate_tag_retained(tag_retain_check, answer_index, answer_row, error_dict, error_iter, missing=True)
+
+                    # text_notnull
+                    # --------------------------------------------------------------
+                    text_notnull_check = answer_df[answer_df.action == '<text_notnull>']
+                    error_iter, error_dict = self.validate_text_notnull(text_notnull_check, answer_index, answer_row, error_dict, error_iter, missing=True)
+
+                    # text_retained
+                    # --------------------------------------------------------------
+                    text_retained_check = answer_df[answer_df.action == '<text_retained>']
+                    error_iter, error_dict = self.validate_text_retained(text_retained_check, answer_index, answer_row, error_dict, error_iter, missing=True)
+
+                    # text_removed
+                    # --------------------------------------------------------------
+                    text_removed_check = answer_df[answer_df.action == '<text_removed>']
+                    error_iter, error_dict = self.validate_text_removed(text_removed_check, answer_index, answer_row, error_dict, error_iter, missing=True)
+
+                    # date_shifted
+                    # --------------------------------------------------------------
+                    date_shifted_check = answer_df[answer_df.action == '<date_shifted>']
+                    error_iter, error_dict = self.validate_date_shifted(date_shifted_check, answer_index, answer_row, error_dict, error_iter, missing=True)
+
+                    # uid_changed
+                    # --------------------------------------------------------------
+                    uid_changed_check = answer_df[(answer_df.action == '<uid_changed>')]
+                    error_iter, error_dict = self.validate_uid_changed(uid_changed_check, answer_index, answer_row, error_dict, error_iter, missing=True)
+
+                    # pixels_hidden
+                    # --------------------------------------------------------------
+                    pixels_hidden_check = answer_df[answer_df.action == '<pixels_hidden>']
+                    error_iter, error_dict = self.validate_pixels_hidden(pixels_hidden_check, answer_index, answer_row, error_dict, error_iter, missing=True)
+                    
+                    # pixels_retained
+                    # --------------------------------------------------------------
+                    pixels_retained_check = answer_df[answer_df.action == '<pixels_retained>']
+                    error_iter, error_dict = self.validate_pixels_retained(pixels_retained_check, answer_index, answer_row, error_dict, error_iter, missing=True)
+                    
+                    # uid_consistent
+                    # --------------------------------------------------------------
+                    uid_consistent_check = answer_df[answer_df.action == '<uid_consistent>']
+                    error_iter, error_dict = self.validate_uid_consistent(uid_consistent_check, answer_index, answer_row, error_dict, error_iter, uids_old_to_new=None, missing=True)
+                    
+                    # patid_consistent
+                    # --------------------------------------------------------------
+                    patid_consistent_check = answer_df[answer_df.action == '<patid_consistent>']
+                    error_iter, error_dict = self.validate_patid_consistent(patid_consistent_check, answer_index, answer_row, error_dict, error_iter, patids_old_to_new=None, missing=True)
+
+            except:
+                error = traceback.format_exc()
+                logging.error(f'action: validate_missing_files | instance: {answer_row.SOPInstanceUID} | tag: None \n{error}')
+
+        return error_dict
+
     # ---------------------------------
     # Helper functions
     # ---------------------------------
@@ -178,11 +274,11 @@ class curation_validator(object):
 
         return answer_df
 
-    def log_error(self, error_dict, error_iter, file_index, file_row, check_index, check_row, file_value, passed, score):
+    def log_error(self, error_dict, error_iter, file_index, file_row, check_index, check_row, file_value, passed, score, missing=False):
 
         # log errors found in validation
         error_dict[error_iter] = {}
-        error_dict[error_iter]['file_index'] = file_index
+        error_dict[error_iter]['file_index'] = None if missing else file_index
         error_dict[error_iter]['check_index'] = check_index
         error_dict[error_iter]['check_passed'] = passed
         error_dict[error_iter]['check_score'] = score
@@ -199,14 +295,14 @@ class curation_validator(object):
         #error_dict[error_iter]['tag_keyword'] = check_row.tag_keyword
         error_dict[error_iter]['tag_name'] = check_row.tag_name
 
-        error_dict[error_iter]['modality'] = file_row.modality        
-        error_dict[error_iter]['class'] = file_row['class']         
-        error_dict[error_iter]['patient'] = file_row.patient
-        error_dict[error_iter]['study'] = file_row.study
-        error_dict[error_iter]['series'] = file_row.series
-        error_dict[error_iter]['instance'] = file_row.instance
-        error_dict[error_iter]['file_name'] = file_row.file_name
-        error_dict[error_iter]['file_path'] = file_row.file_path
+        error_dict[error_iter]['modality'] = file_row.Modality if missing else file_row.modality        
+        error_dict[error_iter]['class'] = file_row.SOPClassUID if missing else file_row['class']         
+        error_dict[error_iter]['patient'] = file_row.PatientID if missing else file_row.patient
+        error_dict[error_iter]['study'] = file_row.StudyInstanceUID if missing else file_row.study
+        error_dict[error_iter]['series'] = file_row.SeriesInstanceUID if missing else file_row.series
+        error_dict[error_iter]['instance'] = file_row.SOPInstanceUID if missing else file_row.instance
+        error_dict[error_iter]['file_name'] = None
+        error_dict[error_iter]['file_path'] = None
 
         error_iter+=1
 
@@ -216,288 +312,369 @@ class curation_validator(object):
     # Validation functions
     # ---------------------------------
 
-    def validate_tag_retained(self, data_check, file_index, file_row, error_dict, error_iter):
+    def validate_tag_retained(self, data_check, file_index, file_row, error_dict, error_iter, missing=False):
 
         for check_index, check_row in data_check.iterrows():
 
-            file_value = None
-            check_pass = None
-            check_score = None
+            if missing:
+                
+                file_value = "<MISSING FILE>"
+                check_pass = False
+                check_score = 0
+                
+                error_iter, error_dict = self.log_error(error_dict, error_iter, file_index, file_row, check_index, check_row, file_value, check_pass, check_score, missing)
+            else:
 
-            try:
+                file_value = None
+                check_pass = None
+                check_score = None
 
-                if check_row.tag_ds in file_row.keys() and not pd.isnull(file_row[check_row.tag_ds]):
-                    file_value = file_row[check_row.tag_ds]
-                    check_pass = True
-                    check_score = 1
-                else:
-                    check_pass = False
-                    check_score = 0
+                try:
 
-            except:
-                error = traceback.format_exc()
-                logging.error(f'action: tag_retained | file_path: {file_row.file_path} | instance: {file_row.instance} | tag: {check_row.tag_ds} \n{error}')
-
-            error_iter, error_dict = self.log_error(error_dict, error_iter, file_index, file_row, check_index, check_row, file_value, check_pass, check_score)
-
-        return error_iter, error_dict
-
-    def validate_text_notnull(self, data_check, file_index, file_row, error_dict, error_iter):
-
-        for check_index, check_row in data_check.iterrows():
-
-            file_value = None
-            check_pass = None
-            check_score = None
-
-            try:
-
-                if check_row.tag_ds in file_row.keys() and not pd.isnull(file_row[check_row.tag_ds]):
-                    file_value = file_row[check_row.tag_ds]
-                    if file_value in ['<>']:
-                        check_pass = False
-                        check_score = 0
-                    else:
+                    if check_row.tag_ds in file_row.keys() and not pd.isnull(file_row[check_row.tag_ds]):
+                        file_value = file_row[check_row.tag_ds]
                         check_pass = True
                         check_score = 1
-                else:
-                    check_pass = False
-                    check_score = 0
-                        
-            except:
-                error = traceback.format_exc()
-                logging.error(f'action: text_notnull | file_path: {file_row.file_path} | instance: {file_row.instance} | tag: {check_row.tag_ds} \n{error}')
-
-            error_iter, error_dict = self.log_error(error_dict, error_iter, file_index, file_row, check_index, check_row, file_value, check_pass, check_score)
-
-        return error_iter, error_dict
-
-    def validate_text_retained(self, data_check, file_index, file_row, error_dict, error_iter):
-
-        for check_index, check_row in data_check.iterrows():
-
-            file_value = None
-            check_pass = None
-            check_score = None
-
-            try:
-                if check_row.tag_ds in file_row.keys():
-                    file_value = file_row[check_row.tag_ds] if not pd.isnull(file_row[check_row.tag_ds]) else None
-                    if file_value:
-                        check_value = check_row.action_text if not pd.isnull(check_row.action_text) else None
-                        check_pass, check_score = self.validate_text(file_value, check_value, 'retain')
                     else:
                         check_pass = False
                         check_score = 0
-                else:
-                    check_pass = False
-                    check_score = 0
 
-            except:
-                error = traceback.format_exc()
-                logging.error(f'action: text_retained | file_path: {file_row.file_path} | instance: {file_row.instance} | tag: {check_row.tag_ds} \n{error}')
+                except:
+                    error = traceback.format_exc()
+                    logging.error(f'action: tag_retained | file_path: {file_row.file_path} | instance: {file_row.instance} | tag: {check_row.tag_ds} \n{error}')
 
-            error_iter, error_dict = self.log_error(error_dict, error_iter, file_index, file_row, check_index, check_row, file_value, check_pass, check_score)
+                error_iter, error_dict = self.log_error(error_dict, error_iter, file_index, file_row, check_index, check_row, file_value, check_pass, check_score)
 
         return error_iter, error_dict
 
-    def validate_text_removed(self, data_check, file_index, file_row, error_dict, error_iter):
+    def validate_text_notnull(self, data_check, file_index, file_row, error_dict, error_iter, missing=False):
+
+        for check_index, check_row in data_check.iterrows():
+
+            if missing:
+                
+                file_value = "<MISSING FILE>"
+                check_pass = False
+                check_score = 0
+                
+                error_iter, error_dict = self.log_error(error_dict, error_iter, file_index, file_row, check_index, check_row, file_value, check_pass, check_score, missing)
+            else:
+
+                file_value = None
+                check_pass = None
+                check_score = None
+
+                try:
+
+                    if check_row.tag_ds in file_row.keys() and not pd.isnull(file_row[check_row.tag_ds]):
+                        file_value = file_row[check_row.tag_ds]
+                        if file_value in ['<>']:
+                            check_pass = False
+                            check_score = 0
+                        else:
+                            check_pass = True
+                            check_score = 1
+                    else:
+                        check_pass = False
+                        check_score = 0
+                        
+                except:
+                    error = traceback.format_exc()
+                    logging.error(f'action: text_notnull | file_path: {file_row.file_path} | instance: {file_row.instance} | tag: {check_row.tag_ds} \n{error}')
+
+                error_iter, error_dict = self.log_error(error_dict, error_iter, file_index, file_row, check_index, check_row, file_value, check_pass, check_score)
+
+        return error_iter, error_dict
+
+    def validate_text_retained(self, data_check, file_index, file_row, error_dict, error_iter, missing=False):
+
+        for check_index, check_row in data_check.iterrows():
+
+            if missing:
+                
+                file_value = "<MISSING FILE>"
+                check_pass = False
+                check_score = 0
+                
+                error_iter, error_dict = self.log_error(error_dict, error_iter, file_index, file_row, check_index, check_row, file_value, check_pass, check_score, missing)
+            else:
+
+                file_value = None
+                check_pass = None
+                check_score = None
+
+                try:
+                    if check_row.tag_ds in file_row.keys():
+                        file_value = file_row[check_row.tag_ds] if not pd.isnull(file_row[check_row.tag_ds]) else None
+                        if file_value:
+                            check_value = check_row.action_text if not pd.isnull(check_row.action_text) else None
+                            check_pass, check_score = self.validate_text(file_value, check_value, 'retain')
+                        else:
+                            check_pass = False
+                            check_score = 0
+                    else:
+                        check_pass = False
+                        check_score = 0
+
+                except:
+                    error = traceback.format_exc()
+                    logging.error(f'action: text_retained | file_path: {file_row.file_path} | instance: {file_row.instance} | tag: {check_row.tag_ds} \n{error}')
+
+                error_iter, error_dict = self.log_error(error_dict, error_iter, file_index, file_row, check_index, check_row, file_value, check_pass, check_score)
+
+        return error_iter, error_dict
+
+    def validate_text_removed(self, data_check, file_index, file_row, error_dict, error_iter, missing=False):
 
         for check_index, check_row in data_check.iterrows():
                 
-            file_value = None
-            check_pass = None
-            check_score = None
+            if missing:
+                
+                file_value = "<MISSING FILE>"
+                check_pass = True
+                check_score = 1
+                
+                error_iter, error_dict = self.log_error(error_dict, error_iter, file_index, file_row, check_index, check_row, file_value, check_pass, check_score, missing)
+            else:
 
-            try:
+                file_value = None
+                check_pass = None
+                check_score = None
 
-                if check_row.tag_ds in file_row.keys():
-                    file_value = file_row[check_row.tag_ds] if not pd.isnull(file_row[check_row.tag_ds]) else None
-                    file_value = '<>' if file_value == '<REMOVED>' else file_value
-                    if file_value:
-                        check_value = check_row.action_text if not pd.isnull(check_row.action_text) else None
-                        check_pass, check_score = self.validate_text(file_value, check_value, 'remove')
+                try:
+
+                    if check_row.tag_ds in file_row.keys():
+                        file_value = file_row[check_row.tag_ds] if not pd.isnull(file_row[check_row.tag_ds]) else None
+                        file_value = '<>' if file_value == '<REMOVED>' else file_value
+                        if file_value:
+                            check_value = check_row.action_text if not pd.isnull(check_row.action_text) else None
+                            check_pass, check_score = self.validate_text(file_value, check_value, 'remove')
+                        else:
+                            check_pass = True
+                            check_score = 1
                     else:
                         check_pass = True
                         check_score = 1
-                else:
-                    check_pass = True
-                    check_score = 1
 
-            except:
-                error = traceback.format_exc()
-                logging.error(f'action: text_removed | file_path: {file_row.file_path} | instance: {file_row.instance} | tag: {check_row.tag_ds} \n{error}')
+                except:
+                    error = traceback.format_exc()
+                    logging.error(f'action: text_removed | file_path: {file_row.file_path} | instance: {file_row.instance} | tag: {check_row.tag_ds} \n{error}')
 
-            error_iter, error_dict = self.log_error(error_dict, error_iter, file_index, file_row, check_index, check_row, file_value, check_pass, check_score)
+                error_iter, error_dict = self.log_error(error_dict, error_iter, file_index, file_row, check_index, check_row, file_value, check_pass, check_score)
 
         return error_iter, error_dict
 
-    def validate_date_shifted(self, data_check, file_index, file_row, error_dict, error_iter):
+    def validate_date_shifted(self, data_check, file_index, file_row, error_dict, error_iter, missing=False):
 
         for check_index, check_row in data_check.iterrows():
 
-            file_value = None
-            check_pass = None
-            check_score = None
+            if missing:
+                
+                file_value = "<MISSING FILE>"
+                check_pass = True
+                check_score = 1
+                
+                error_iter, error_dict = self.log_error(error_dict, error_iter, file_index, file_row, check_index, check_row, file_value, check_pass, check_score, missing)
+            else:
 
-            try:
+                file_value = None
+                check_pass = None
+                check_score = None
 
-                if check_row.tag_ds in file_row.keys():
+                try:
 
-                    file_value = file_row[check_row.tag_ds] if not pd.isnull(file_row[check_row.tag_ds]) else ''
-                    check_value = check_row.value.replace('<','').replace('>','')
+                    if check_row.tag_ds in file_row.keys():
 
-                    if check_value.replace('\\','') in file_value.replace('\\',''):
-                        check_pass = False
-                        check_score = 0
+                        file_value = file_row[check_row.tag_ds] if not pd.isnull(file_row[check_row.tag_ds]) else ''
+                        check_value = check_row.value.replace('<','').replace('>','')
+
+                        if check_value.replace('\\','') in file_value.replace('\\',''):
+                            check_pass = False
+                            check_score = 0
+                        else:
+                            check_pass = True
+                            check_score = 1
                     else:
                         check_pass = True
                         check_score = 1
-                else:
-                    check_pass = True
-                    check_score = 1
 
-            except:
-                error = traceback.format_exc()
-                logging.error(f'action: date_shifted | file_path: {file_row.file_path} | instance: {file_row.instance} | tag: {check_row.tag_ds} \n{error}')
+                except:
+                    error = traceback.format_exc()
+                    logging.error(f'action: date_shifted | file_path: {file_row.file_path} | instance: {file_row.instance} | tag: {check_row.tag_ds} \n{error}')
 
-            error_iter, error_dict = self.log_error(error_dict, error_iter, file_index, file_row, check_index, check_row, file_value, check_pass, check_score)
+                error_iter, error_dict = self.log_error(error_dict, error_iter, file_index, file_row, check_index, check_row, file_value, check_pass, check_score)
 
         return error_iter, error_dict
 
-    def validate_uid_changed(self, data_check, file_index, file_row, error_dict, error_iter):
+    def validate_uid_changed(self, data_check, file_index, file_row, error_dict, error_iter, missing=False):
 
         for check_index, check_row in data_check.iterrows():
 
-            file_value = None
-            check_pass = None
-            check_score = None
+            if missing:
+                
+                file_value = "<MISSING FILE>"
+                check_pass = True
+                check_score = 1
+                
+                error_iter, error_dict = self.log_error(error_dict, error_iter, file_index, file_row, check_index, check_row, file_value, check_pass, check_score, missing)
+            else:
 
-            try:
+                file_value = None
+                check_pass = None
+                check_score = None
 
-                if check_row.tag_ds in file_row.keys():
+                try:
 
-                    file_value = file_row[check_row.tag_ds] if not pd.isnull(file_row[check_row.tag_ds]) else ''
-                    check_value = check_row.value.replace('<','').replace('>','')
+                    if check_row.tag_ds in file_row.keys():
 
-                    if check_value.replace('\\','') in file_value.replace('\\',''):
-                        check_pass = False
-                        check_score = 0
+                        file_value = file_row[check_row.tag_ds] if not pd.isnull(file_row[check_row.tag_ds]) else ''
+                        check_value = check_row.value.replace('<','').replace('>','')
+
+                        if check_value.replace('\\','') in file_value.replace('\\',''):
+                            check_pass = False
+                            check_score = 0
+                        else:
+                            check_pass = True
+                            check_score = 1
                     else:
                         check_pass = True
                         check_score = 1
-                else:
-                    check_pass = True
-                    check_score = 1
 
-            except:
-                error = traceback.format_exc()
-                logging.error(f'action: uid_changed | file_path: {file_row.file_path} | instance: {file_row.instance} | tag: {check_row.tag_ds} \n{error}')
+                except:
+                    error = traceback.format_exc()
+                    logging.error(f'action: uid_changed | file_path: {file_row.file_path} | instance: {file_row.instance} | tag: {check_row.tag_ds} \n{error}')
 
-            error_iter, error_dict = self.log_error(error_dict, error_iter, file_index, file_row, check_index, check_row, file_value, check_pass, check_score)
+                error_iter, error_dict = self.log_error(error_dict, error_iter, file_index, file_row, check_index, check_row, file_value, check_pass, check_score)
 
         return error_iter, error_dict
 
-    def validate_pixels_retained(self, data_check, file_index, file_row, error_dict, error_iter):
+    def validate_pixels_retained(self, data_check, file_index, file_row, error_dict, error_iter, missing=False):
 
         for check_index, check_row in data_check.iterrows():
 
-            file_value = None
-            check_pass = None
-            check_score = None
+            if missing:
+                
+                file_value = "<MISSING FILE>"
+                check_pass = False
+                check_score = 0
+                
+                error_iter, error_dict = self.log_error(error_dict, error_iter, file_index, file_row, check_index, check_row, file_value, check_pass, check_score, missing)
+            else:
 
-            try:
+                file_value = None
+                check_pass = None
+                check_score = None
 
-                if 'file_digest' in file_row.keys():
+                try:
 
-                    file_value = file_row['file_digest'].strip('<>') if not pd.isnull(file_row['file_digest']) else ''
-                    check_value = check_row.value = check_row.action_text.strip('<>')
+                    if 'file_digest' in file_row.keys():
 
-                    if file_value != check_value:
+                        file_value = file_row['file_digest'].strip('<>') if not pd.isnull(file_row['file_digest']) else ''
+                        check_value = check_row.value = check_row.action_text.strip('<>')
+
+                        if file_value != check_value:
+                            check_pass = False
+                            check_score = 0
+                        else:
+                            check_pass = True
+                            check_score = 1
+                    else:
                         check_pass = False
                         check_score = 0
-                    else:
-                        check_pass = True
-                        check_score = 1
-                else:
-                    check_pass = False
-                    check_score = 0
 
-            except:
-                error = traceback.format_exc()
-                logging.error(f'action: pixels_retained | file_path: {file_row.file_path} | instance: {file_row.instance} | tag: {check_row.tag_ds} \n{error}')
+                except:
+                    error = traceback.format_exc()
+                    logging.error(f'action: pixels_retained | file_path: {file_row.file_path} | instance: {file_row.instance} | tag: {check_row.tag_ds} \n{error}')
 
-            error_iter, error_dict = self.log_error(error_dict, error_iter, file_index, file_row, check_index, check_row, file_value, check_pass, check_score)
+                error_iter, error_dict = self.log_error(error_dict, error_iter, file_index, file_row, check_index, check_row, file_value, check_pass, check_score)
 
         return error_iter, error_dict
 
-    def validate_uid_consistent(self, data_check, file_index, file_row, error_dict, error_iter, uids_old_to_new):
+    def validate_uid_consistent(self, data_check, file_index, file_row, error_dict, error_iter, uids_old_to_new, missing=False):
 
         for check_index, check_row in data_check.iterrows():
 
-            file_value = None
-            check_pass = None
-            check_score = None
+            if missing:
+                
+                file_value = "<MISSING FILE>"
+                check_pass = False
+                check_score = 0
+                
+                error_iter, error_dict = self.log_error(error_dict, error_iter, file_index, file_row, check_index, check_row, file_value, check_pass, check_score, missing)
+            else:
 
-            try:
+                file_value = None
+                check_pass = None
+                check_score = None
 
-                if check_row.tag_ds in file_row.keys():
+                try:
 
-                    file_value = file_row[check_row.tag_ds] if not pd.isnull(file_row[check_row.tag_ds]) else ''
-                    check_value = uids_old_to_new.get(check_row.value, "")
+                    if check_row.tag_ds in file_row.keys():
 
-                    if file_value != check_value:
-                        check_pass = False
-                        check_score = 0
+                        file_value = file_row[check_row.tag_ds] if not pd.isnull(file_row[check_row.tag_ds]) else ''
+                        check_value = uids_old_to_new.get(check_row.value, "")
+
+                        if file_value != check_value:
+                            check_pass = False
+                            check_score = 0
+                        else:
+                            check_pass = True
+                            check_score = 1
                     else:
                         check_pass = True
                         check_score = 1
-                else:
-                    check_pass = True
-                    check_score = 1
 
-            except:
-                error = traceback.format_exc()
-                logging.error(f'action: uid_consistent | file_path: {file_row.file_path} | instance: {file_row.instance} | tag: {check_row.tag_ds} \n{error}')
+                except:
+                    error = traceback.format_exc()
+                    logging.error(f'action: uid_consistent | file_path: {file_row.file_path} | instance: {file_row.instance} | tag: {check_row.tag_ds} \n{error}')
 
-            error_iter, error_dict = self.log_error(error_dict, error_iter, file_index, file_row, check_index, check_row, file_value, check_pass, check_score)
+                error_iter, error_dict = self.log_error(error_dict, error_iter, file_index, file_row, check_index, check_row, file_value, check_pass, check_score)
 
         return error_iter, error_dict
     
-    def validate_patid_consistent(self, data_check, file_index, file_row, error_dict, error_iter, patids_old_to_new):
+    def validate_patid_consistent(self, data_check, file_index, file_row, error_dict, error_iter, patids_old_to_new, missing=False):
 
         for check_index, check_row in data_check.iterrows():
 
-            file_value = None
-            check_pass = None
-            check_score = None
+            if missing:
+                
+                file_value = "<MISSING FILE>"
+                check_pass = False
+                check_score = 0
+                
+                error_iter, error_dict = self.log_error(error_dict, error_iter, file_index, file_row, check_index, check_row, file_value, check_pass, check_score, missing)
+            else:
 
-            try:
+                file_value = None
+                check_pass = None
+                check_score = None
 
-                if check_row.tag_ds in file_row.keys():
+                try:
 
-                    file_value = file_row[check_row.tag_ds] if not pd.isnull(file_row[check_row.tag_ds]) else ''
-                    check_value = patids_old_to_new.get(check_row.value, "")
+                    if check_row.tag_ds in file_row.keys():
 
-                    if file_value != check_value:
-                        check_pass = False
-                        check_score = 0
+                        file_value = file_row[check_row.tag_ds] if not pd.isnull(file_row[check_row.tag_ds]) else ''
+                        check_value = patids_old_to_new.get(check_row.value, "")
+
+                        if file_value != check_value:
+                            check_pass = False
+                            check_score = 0
+                        else:
+                            check_pass = True
+                            check_score = 1
                     else:
                         check_pass = True
                         check_score = 1
-                else:
-                    check_pass = True
-                    check_score = 1
 
-            except:
-                error = traceback.format_exc()
-                logging.error(f'action: patid_consistent | file_path: {file_row.file_path} | instance: {file_row.instance} | tag: {check_row.tag_ds} \n{error}')
+                except:
+                    error = traceback.format_exc()
+                    logging.error(f'action: patid_consistent | file_path: {file_row.file_path} | instance: {file_row.instance} | tag: {check_row.tag_ds} \n{error}')
 
-            error_iter, error_dict = self.log_error(error_dict, error_iter, file_index, file_row, check_index, check_row, file_value, check_pass, check_score)
+                error_iter, error_dict = self.log_error(error_dict, error_iter, file_index, file_row, check_index, check_row, file_value, check_pass, check_score)
 
         return error_iter, error_dict
 
-    def validate_text(self, file_value, answer_value, method):
+    def validate_text(self, file_value, answer_value, method, missing=False):
 
         #-----------------------------
         # Test variables
@@ -577,7 +754,7 @@ class curation_validator(object):
 
         return check_pass, check_score
 
-    def validate_pixels_hidden(self, data_check, file_index, file_row, error_dict, error_iter):
+    def validate_pixels_hidden(self, data_check, file_index, file_row, error_dict, error_iter, missing=False):
 
         def check_text_removal_threshold(file_path, action_text, bounding_box):
 
@@ -633,41 +810,50 @@ class curation_validator(object):
         # ---------------------------------
         for check_index, check_row in data_check.iterrows():
 
-            file_value = None
-            check_pass = None
-            check_score = None
+            if missing:
+                
+                file_value = "<MISSING FILE>"
+                check_pass = True
+                check_score = 1
+                
+                error_iter, error_dict = self.log_error(error_dict, error_iter, file_index, file_row, check_index, check_row, file_value, check_pass, check_score, missing)
+            else:
 
-            try:                    
-                file_path = file_row.file_path.strip('<>')
+                file_value = None
+                check_pass = None
+                check_score = None
 
-                action_dict = json.loads(check_row.action_text.strip('<>'))
-                check_value = action_dict['text'].replace('\n',' ').replace('DOB:','')
-                check_value = re.sub(r'\[[A-Za-z]\]', '', check_value)
+                try:                    
+                    file_path = file_row.file_path.strip('<>')
+
+                    action_dict = json.loads(check_row.action_text.strip('<>'))
+                    check_value = action_dict['text'].replace('\n',' ').replace('DOB:','')
+                    check_value = re.sub(r'\[[A-Za-z]\]', '', check_value)
                
-                #(start_x, start_y, end_x, end_y)
-                bounding_box = (int(action_dict['top_left'][0]), int(action_dict['top_left'][1]), 
-                                int(action_dict['bottom_right'][0]), int(action_dict['bottom_right'][1]))                
+                    #(start_x, start_y, end_x, end_y)
+                    bounding_box = (int(action_dict['top_left'][0]), int(action_dict['top_left'][1]), 
+                                    int(action_dict['bottom_right'][0]), int(action_dict['bottom_right'][1]))                
 
-                file_image, file_value = get_ocr_text(file_path, bounding_box)
+                    file_image, file_value = get_ocr_text(file_path, bounding_box)
                 
-                if file_value:
-                    check_pass, check_score = self.validate_text(file_value, check_value, 'remove')
-                else:
-                    check_pass = True
-                    check_score = 1                    
+                    if file_value:
+                        check_pass, check_score = self.validate_text(file_value, check_value, 'remove')
+                    else:
+                        check_pass = True
+                        check_score = 1                    
 
-                # plt.figure(figsize=(8, 8))
-                # plt.imshow(file_image, cmap='gray')
-                # plt.title("Pixel Validation Region")
-                # plt.axis('off')
-                # plt.figtext(0.5, 0.01, f"OCR Text: {file_value}\n\nAction Text: {check_value}\n\nPass: {'yes' if check_pass else 'no'}  |  Score: {check_score:.2f}\n\n", ha='center', fontsize=10, bbox={"facecolor":"orange", "alpha":0.5, "pad":5})
-                # plt.show()
+                    # plt.figure(figsize=(8, 8))
+                    # plt.imshow(file_image, cmap='gray')
+                    # plt.title("Pixel Validation Region")
+                    # plt.axis('off')
+                    # plt.figtext(0.5, 0.01, f"OCR Text: {file_value}\n\nAction Text: {check_value}\n\nPass: {'yes' if check_pass else 'no'}  |  Score: {check_score:.2f}\n\n", ha='center', fontsize=10, bbox={"facecolor":"orange", "alpha":0.5, "pad":5})
+                    # plt.show()
                 
-                error_iter, error_dict = self.log_error(error_dict, error_iter, file_index, file_row, check_index, check_row, file_value, check_pass, check_score)
+                    error_iter, error_dict = self.log_error(error_dict, error_iter, file_index, file_row, check_index, check_row, file_value, check_pass, check_score)
 
-            except:
-                error = traceback.format_exc()
-                logging.error(f'action: pixels_hidden | file_path: {file_row.file_path} | instance: {file_row.instance} | tag: {check_row.tag_ds} \n{error}')
+                except:
+                    error = traceback.format_exc()
+                    logging.error(f'action: pixels_hidden | file_path: {file_row.file_path} | instance: {file_row.instance} | tag: {check_row.tag_ds} \n{error}')
 
         return error_iter, error_dict
 
