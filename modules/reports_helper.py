@@ -170,9 +170,9 @@ class reports_helper(object):
         # validation_db_conn.close()        
 
         if self.series_based:
-            action_df.drop(columns=['file_index','check_index','instance','file_name','file_path'], errors='ignore', inplace=True)
+            #action_df.drop(columns=['file_index','check_index','instance','file_name','file_path'], errors='ignore', inplace=True)
             action_df.sort_values('check_passed', inplace=True)
-            action_df.drop_duplicates(keep='first', inplace=True)
+            action_df.drop_duplicates(subset=['action', 'tag_ds', 'patient', 'study', 'series'], keep='first', inplace=True)
         
         action_df = action_df[['action','check_passed']].copy()
         action_df['check_passed'] = action_df['check_passed'].fillna(-1)
@@ -230,9 +230,9 @@ class reports_helper(object):
         # validation_db_conn.close() 
 
         if self.series_based:
-            total_df.drop(columns=['file_index','check_index','instance','file_name','file_path'], errors='ignore', inplace=True)
+            #total_df.drop(columns=['file_index','check_index','instance','file_name','file_path'], errors='ignore', inplace=True)
             total_df.sort_values('check_passed', inplace=True)
-            total_df.drop_duplicates(keep='first', inplace=True)
+            total_df.drop_duplicates(subset=['action', 'tag_ds', 'patient', 'study', 'series'], keep='first', inplace=True)
         
         category_tuples = total_df.apply(self.check_category, axis=1)
 
@@ -261,9 +261,9 @@ class reports_helper(object):
         # validation_db_conn.close()         
 
         if self.series_based:
-            scoring_df.drop(columns=['file_index','check_index','instance','file_name','file_path'], errors='ignore', inplace=True)
+            #scoring_df.drop(columns=['file_index','check_index','instance','file_name','file_path', 'action_text', 'file_value', 'answer_value'], errors='ignore', inplace=True)
             scoring_df.sort_values('check_passed', inplace=True)
-            scoring_df.drop_duplicates(keep='first', inplace=True)
+            scoring_df.drop_duplicates(subset=['action', 'tag_ds', 'patient', 'study', 'series'], keep='first', inplace=True)
 
         scoring_df['score_cat'] = "All"
         scoring_df = scoring_df[['check_passed','score_cat']].copy()
@@ -309,9 +309,9 @@ class reports_helper(object):
         # validation_db_conn.close()          
 
         if self.series_based:
-            scoring_df.drop(columns=['file_index','check_index','instance','file_name','file_path'], errors='ignore', inplace=True)
+            #scoring_df.drop(columns=['file_index','check_index','instance','file_name','file_path', 'action_text', 'file_value', 'answer_value'], errors='ignore', inplace=True)
             scoring_df.sort_values('check_passed', inplace=True)
-            scoring_df.drop_duplicates(keep='first', inplace=True)
+            scoring_df.drop_duplicates(subset=['action', 'tag_ds', 'patient', 'study', 'series'], keep='first', inplace=True)
             
         category_tuples = scoring_df.apply(self.check_category, axis=1)
         scoring_df['score_cat'] = category_tuples.apply(lambda x: x[0] if x != 0 else 'unknown')
