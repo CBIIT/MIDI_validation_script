@@ -79,9 +79,9 @@ def main(argv):
         runner = dciodvfy_runner(config, log_path, log_level)
 
         if os.name =='nt':
-            software_path = 'software/dicom3tools_winexe_1.00.snapshot.20220618093127/dciodvfy'
+            software_path = 'software/dicom3tools_winexe_1.00.snapshot.20250128115421/dciodvfy'
         elif os.name =='mac':
-            software_path = 'software/dicom3tools_macexe_1.00.snapshot.20220618093127/dciodvfy'
+            software_path = 'software/dicom3tools_macexe_1.00.snapshot.20250128115421/dciodvfy'
         else:
             #linux - need to run "sudo apt install dicom3tools"
             software_path = 'dciodvfy'
